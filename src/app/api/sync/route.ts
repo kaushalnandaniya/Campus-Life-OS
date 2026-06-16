@@ -61,16 +61,27 @@ export async function POST(req: NextRequest) {
 
     // Step 3: Extract tasks using AI
     console.log("[Sync] Extracting tasks with AI...");
-    const extractedTasks = await extractTasksFromEmails(
-      emailsToProcess.map((e) => ({
-        id: e.id,
-        subject: e.subject,
-        from: e.from,
-        body: e.body,
-        _sourceAccount: e._sourceAccount,
-      }))
-    );
-    console.log(`[Sync] Extracted ${extractedTasks.length} tasks`);
+    
+    const mappedEmails = emailsToProcess.map((e) => ({
+      id: e.id,
+      subject: e.subject,
+      from: e.from,
+      body: e.body,
+      _sourceAccount: e._sourceAccount,
+    }));
+    
+    // Batch process in chunks of 10 to prevent MAX_TOKENS truncation on long responses
+    const CHUNK_SIZE = 10;
+    const extractedTasks = [];
+    
+    for (let i = 0; i < mappedEmails.length; i += CHUNK_SIZE) {
+      const chunk = mappedEmails.slice(i, i + CHUNK_SIZE);
+      console.log(`[Sync] Processing chunk ${i / CHUNK_SIZE + 1} of ${Math.ceil(mappedEmails.length / CHUNK_SIZE)} (${chunk.length} emails)`);
+      const chunkTasks = await extractTasksFromEmails(chunk);
+      extractedTasks.push(...chunkTasks);
+    }
+    
+    console.log(`[Sync] Extracted a total of ${extractedTasks.length} tasks across all chunks`);
 
     const userEmail = accounts[0]?.email;
     if (extractedTasks.length > 0 && userEmail) {
