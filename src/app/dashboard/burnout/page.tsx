@@ -46,6 +46,7 @@ export default function BurnoutPage() {
           status: t.status,
           source: t.source,
           aiConfidence: t.ai_confidence,
+          createdAt: t.created_at || new Date().toISOString(),
         }));
         setTasks(formattedTasks);
       }
