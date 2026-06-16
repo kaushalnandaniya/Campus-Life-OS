@@ -82,62 +82,36 @@ export default function SettingsPage() {
       return;
     }
 
-    if (!(window as any).google) {
-      alert("Google Identity Services failed to load. Please refresh.");
-      return;
-    }
+    // Use a manual OAuth flow to completely bypass the "Authorized JavaScript origins" Google Cloud bug
+    // We will use the redirect URI which we KNOW works because NextAuth uses it successfully!
+    const redirectUri = `${window.location.origin}/oauth/callback`;
+    const scope = "https://www.googleapis.com/auth/gmail.readonly";
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}&prompt=consent`;
 
-    const client = (window as any).google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: 'https://www.googleapis.com/auth/gmail.readonly',
-      callback: async (response: any) => {
-        if (response.error) {
-          console.error("OAuth error", response);
-          return;
+    // Open a popup window
+    const width = 500;
+    const height = 600;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+    
+    const popup = window.open(
+      authUrl,
+      "GoogleAuth",
+      `width=${width},height=${height},top=${top},left=${left},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+    );
+
+    // Poll to see when the popup closes to refresh the UI
+    const pollTimer = window.setInterval(() => {
+      if (popup && popup.closed) {
+        window.clearInterval(pollTimer);
+        // Refresh profile state from localStorage since popup updated it
+        const loaded = loadProfile();
+        if (!loaded.displayName && session?.user?.name) {
+          loaded.displayName = session.user.name;
         }
-
-        try {
-          // Fetch the email address of the account that just authorized
-          const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
-            headers: { Authorization: `Bearer ${response.access_token}` }
-          });
-          const data = await res.json();
-          
-          if (data.emailAddress) {
-            const emailStr = data.emailAddress.toLowerCase();
-            
-            // Prevent adding primary email as a personal email
-            if (emailStr === connectedEmail) {
-               alert("This is already your primary connected account!");
-               return;
-            }
-
-            // Check if already exists, and if so, update the token
-            const existing = profile.personalEmails.filter(pe => pe.email !== emailStr);
-            
-            const newAccount = {
-              email: emailStr,
-              accessToken: response.access_token,
-              expiresAt: Date.now() + (response.expires_in * 1000)
-            };
-
-            const updated = { 
-              ...profile, 
-              personalEmails: [...existing, newAccount] 
-            };
-            
-            setProfile(updated);
-            saveProfile(updated);
-            setNewEmail(""); // Not strictly needed anymore since we don't type it
-          }
-        } catch (e) {
-          console.error("Failed to get profile", e);
-          alert("Failed to securely verify email address.");
-        }
-      },
-    });
-
-    client.requestAccessToken({ prompt: 'consent' });
+        setProfile(loaded);
+      }
+    }, 1000);
   };
 
   const removePersonalEmail = (email: string) => {
