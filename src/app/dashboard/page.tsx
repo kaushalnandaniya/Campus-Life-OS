@@ -24,12 +24,12 @@ import {
   Bell,
 } from "lucide-react";
 
-type FilterType = "all" | "pending" | "in_progress" | "completed";
+type FilterType = "active" | "pending" | "in_progress" | "completed";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [tasks, setTasks] = useState<Task[]>(demoTasks);
-  const [filter, setFilter] = useState<FilterType>("all");
+  const [filter, setFilter] = useState<FilterType>("active");
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
@@ -62,9 +62,32 @@ export default function DashboardPage() {
           priority: t.priority,
           status: t.status,
           source: t.source,
-          aiConfidence: t.ai_confidence,
+          createdAt: t.created_at || new Date().toISOString(),
         }));
-        setTasks(formattedTasks);
+
+        // Automatic Weekly Cleanup: Delete completed tasks older than 7 days
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const tasksToKeep = formattedTasks.filter((t) => {
+          if (t.status !== "completed") return true;
+          const dateToCompare = t.deadline ? new Date(t.deadline) : new Date(t.createdAt);
+          return dateToCompare >= sevenDaysAgo;
+        });
+
+        const tasksToDelete = formattedTasks
+          .filter(t => !tasksToKeep.includes(t))
+          .map(t => t.id);
+
+        if (tasksToDelete.length > 0) {
+          // Delete from Supabase in the background
+          supabase.from("tasks").delete().in("id", tasksToDelete).then(({ error }) => {
+            if (error) console.error("Failed to cleanup old completed tasks:", error);
+            else console.log(`Cleaned up ${tasksToDelete.length} old completed tasks`);
+          });
+        }
+
+        setTasks(tasksToKeep);
       } else {
         setTasks([]);
       }
@@ -182,7 +205,7 @@ export default function DashboardPage() {
     .reduce((s, t) => s + t.estimatedEffortHours, 0);
 
   const filteredTasks =
-    filter === "all" ? actionableTasks : actionableTasks.filter((t) => t.status === filter);
+    filter === "active" ? actionableTasks.filter((t) => t.status !== "completed") : actionableTasks.filter((t) => t.status === filter);
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -222,7 +245,7 @@ export default function DashboardPage() {
   ];
 
   const filters: { label: string; value: FilterType }[] = [
-    { label: "All", value: "all" },
+    { label: "Active", value: "active" as any },
     { label: "Pending", value: "pending" },
     { label: "In Progress", value: "in_progress" },
     { label: "Completed", value: "completed" },
