@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
     );
     console.log(`[Sync] Extracted ${extractedTasks.length} tasks`);
 
+    const userEmail = accounts[0]?.email;
     if (extractedTasks.length > 0 && userEmail) {
       // Step 4: Save to Supabase
       const { supabase } = await import("@/lib/supabase");
