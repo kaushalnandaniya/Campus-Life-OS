@@ -34,10 +34,13 @@ We have successfully built the core functional prototype. The current state of t
 - **Parallel Inbox Syncing:** The backend simultaneously fetches emails from all connected accounts without requiring auto-forwarding.
 - **AI Task Extraction Engine:** Integration with Gemini/Groq LLMs to scan emails, classify them as actionable tasks (Assignments, Quizzes, Meetings) or informational updates (Notices, Receipts), and estimate completion effort.
 - **Intelligent Dashboard:** 
-  - Dynamic Task To-Do list with priority sorting.
-  - "Notices & Updates" feed for non-actionable emails.
+  - Dynamic Task To-Do list with priority sorting and active/completed filtering.
+  - "Notices & Updates" feed that intelligently categorizes non-actionable emails and announcements.
   - **Burnout Predictor:** A visual workload gauge that calculates effort hours vs. deadlines to warn students of impending burnout.
-- **Supabase Integration:** Real-time database setup for persisting tasks (currently mocked for rapid demo testing).
+- **Resilient AI Pipeline:** Built-in rate limit handling with automatic failover from Google Gemini to alternative LLMs (Groq Llama 3) during high-demand spikes.
+- **Enhanced Data Tracking & Cleanup:** Tasks and notices display their exact origin inbox (e.g., `Gmail (student@college.edu)`), and the dashboard performs an automatic background weekly cleanup of old completed tasks to prevent clutter.
+- **Smart Scheduling Engine:** A dynamic timeline that interweaves a student's fixed baseline schedule (classes/labs) with AI-suggested study blocks generated perfectly around impending task deadlines.
+- **Supabase Integration:** Live PostgreSQL database setup for persisting synced tasks and multi-account data securely.
 
 ## 💻 Tech Stack
 
