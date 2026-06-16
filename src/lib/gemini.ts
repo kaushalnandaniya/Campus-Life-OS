@@ -243,6 +243,24 @@ ${e.body}
             temperature: 0.1,
             maxOutputTokens: 8192,
             responseMimeType: "application/json",
+            responseSchema: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  emailId: { type: "STRING", description: "The ID of the email this task came from" },
+                  title: { type: "STRING", description: "Short, actionable title" },
+                  description: { type: "STRING", description: "Detailed description" },
+                  subjectCourse: { type: "STRING", description: "Course name or 'General'" },
+                  taskType: { type: "STRING", description: "One of: assignment, reading, project, exam, meeting, administrative, extracurricular, other" },
+                  deadline: { type: "STRING", description: "ISO 8601 date string, or null if no deadline" },
+                  estimatedEffortHours: { type: "NUMBER", description: "Estimated hours to complete (0.5 to 20)" },
+                  priority: { type: "STRING", description: "One of: low, medium, high" },
+                  confidence: { type: "NUMBER", description: "AI confidence score between 0.0 and 1.0" }
+                },
+                required: ["emailId", "title", "description", "taskType", "priority", "estimatedEffortHours", "confidence"]
+              }
+            }
           },
         }),
       });
