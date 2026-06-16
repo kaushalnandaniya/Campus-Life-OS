@@ -121,16 +121,50 @@ export default function DashboardPage() {
     try {
       const profileRaw = localStorage.getItem("campus-life-os-profile");
       if (profileRaw) {
-        const profile = JSON.parse(profileRaw);
+        let profile = JSON.parse(profileRaw);
         if (profile.personalEmails) {
-           profile.personalEmails.forEach((p: any) => {
-             // Only include tokens that are present and not expired
+           let updatedProfile = false;
+           
+           for (let i = 0; i < profile.personalEmails.length; i++) {
+             let p = profile.personalEmails[i];
+             
+             // Check if token is expired (or expires in the next 5 minutes)
+             if (p.accessToken && p.expiresAt && p.expiresAt < Date.now() + 300000) {
+               if (p.refreshToken) {
+                 console.log(`Refreshing token for ${p.email}...`);
+                 try {
+                   const refreshRes = await fetch("/api/auth/refresh", {
+                     method: "POST",
+                     headers: { "Content-Type": "application/json" },
+                     body: JSON.stringify({ refreshToken: p.refreshToken })
+                   });
+                   const refreshData = await refreshRes.json();
+                   
+                   if (refreshRes.ok && refreshData.accessToken) {
+                     p.accessToken = refreshData.accessToken;
+                     p.expiresAt = Date.now() + (parseInt(refreshData.expiresIn || "3600", 10) * 1000);
+                     updatedProfile = true;
+                     console.log(`Successfully refreshed token for ${p.email}`);
+                   } else {
+                     console.warn(`Failed to refresh token for ${p.email}:`, refreshData);
+                   }
+                 } catch (err) {
+                   console.error(`Error refreshing token for ${p.email}:`, err);
+                 }
+               } else {
+                 console.warn(`Token for ${p.email} is expired and no refresh token exists. Needs re-auth.`);
+               }
+             }
+             
+             // Add to accounts list if valid
              if (p.accessToken && (!p.expiresAt || p.expiresAt > Date.now())) {
                accounts.push({ email: p.email, accessToken: p.accessToken });
-             } else {
-               console.warn(`Token for ${p.email} is expired or missing. Needs re-auth.`);
              }
-           });
+           }
+           
+           if (updatedProfile) {
+             localStorage.setItem("campus-life-os-profile", JSON.stringify(profile));
+           }
         }
       }
       
@@ -138,7 +172,9 @@ export default function DashboardPage() {
       if (lastSyncRaw) {
         lastSyncTimestamp = parseInt(lastSyncRaw, 10);
       }
-    } catch {}
+    } catch (e) {
+      console.error("Error preparing accounts for sync:", e);
+    }
 
     try {
       const res = await fetch("/api/sync", {

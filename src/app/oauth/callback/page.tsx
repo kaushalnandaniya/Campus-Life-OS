@@ -8,17 +8,10 @@ export default function OAuthCallbackPage() {
   const [message, setMessage] = useState("Securing your connection...");
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (!hash) {
-      setStatus("error");
-      setMessage("No authorization data received from Google.");
-      return;
-    }
-
-    const params = new URLSearchParams(hash.substring(1));
-    const accessToken = params.get("access_token");
-    const expiresIn = params.get("expires_in");
-    const error = params.get("error");
+    // The code will be in the search parameters, not the hash
+    const searchParams = new URLSearchParams(window.location.search);
+    const code = searchParams.get("code");
+    const error = searchParams.get("error");
 
     if (error) {
       setStatus("error");
@@ -26,62 +19,68 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    if (!accessToken) {
+    if (!code) {
       setStatus("error");
-      setMessage("Access token missing from Google response.");
+      setMessage("Authorization code missing from Google response.");
       return;
     }
 
-    // We have the token! Fetch the user's profile to get their email address
-    fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
-      headers: { Authorization: `Bearer ${accessToken}` }
+    // We have the code! Send it to our backend to exchange for tokens
+    const redirectUri = `${window.location.origin}/oauth/callback`;
+    
+    fetch("/api/auth/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, redirectUri })
     })
       .then(res => res.json())
       .then(data => {
-        if (data.emailAddress) {
-          const emailStr = data.emailAddress.toLowerCase();
-          
-          // Save to localStorage
-          try {
-            const rawProfile = localStorage.getItem("campus-life-os-profile");
-            const profile = rawProfile ? JSON.parse(rawProfile) : { displayName: "", phone: "", personalEmails: [] };
-            
-            // Remove existing entry if it exists to update it
-            const existing = profile.personalEmails ? profile.personalEmails.filter((pe: any) => pe.email !== emailStr) : [];
-            
-            const newAccount = {
-              email: emailStr,
-              accessToken: accessToken,
-              expiresAt: Date.now() + (parseInt(expiresIn || "3600", 10) * 1000)
-            };
-
-            const updatedProfile = {
-              ...profile,
-              personalEmails: [...existing, newAccount]
-            };
-
-            localStorage.setItem("campus-life-os-profile", JSON.stringify(updatedProfile));
-            
-            setStatus("success");
-            setMessage(`Successfully linked ${emailStr}! You can close this window.`);
-            
-            // Try to auto-close the popup
-            setTimeout(() => {
-              window.close();
-            }, 2000);
-
-          } catch (e) {
-            setStatus("error");
-            setMessage("Failed to save profile data.");
-          }
-        } else {
+        if (data.error) {
           setStatus("error");
-          setMessage("Could not read email address from Google.");
+          setMessage(data.error);
+          return;
+        }
+
+        const emailStr = data.email.toLowerCase();
+        
+        // Save to localStorage
+        try {
+          const rawProfile = localStorage.getItem("campus-life-os-profile");
+          const profile = rawProfile ? JSON.parse(rawProfile) : { displayName: "", phone: "", personalEmails: [] };
+          
+          // Remove existing entry if it exists to update it
+          const existing = profile.personalEmails ? profile.personalEmails.filter((pe: any) => pe.email !== emailStr) : [];
+          
+          const newAccount = {
+            email: emailStr,
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken, // New: securely store the refresh token!
+            expiresAt: Date.now() + (parseInt(data.expiresIn || "3600", 10) * 1000)
+          };
+
+          const updatedProfile = {
+            ...profile,
+            personalEmails: [...existing, newAccount]
+          };
+
+          localStorage.setItem("campus-life-os-profile", JSON.stringify(updatedProfile));
+          
+          setStatus("success");
+          setMessage(`Successfully linked ${emailStr}! You can close this window.`);
+          
+          // Try to auto-close the popup
+          setTimeout(() => {
+            window.close();
+          }, 2000);
+
+        } catch (e) {
+          setStatus("error");
+          setMessage("Failed to save profile data.");
         }
       })
       .catch(err => {
         setStatus("error");
-        setMessage("Failed to fetch Google profile. " + err.message);
+        setMessage("Failed to exchange authorization code. " + err.message);
       });
 
   }, []);

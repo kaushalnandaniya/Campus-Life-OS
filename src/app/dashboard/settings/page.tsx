@@ -86,7 +86,8 @@ export default function SettingsPage() {
     // We will use the redirect URI which we KNOW works because NextAuth uses it successfully!
     const redirectUri = `${window.location.origin}/oauth/callback`;
     const scope = "https://www.googleapis.com/auth/gmail.readonly";
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}&prompt=consent`;
+    // We use response_type=code & access_type=offline to get a refresh_token for background sync
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&access_type=offline&scope=${scope}&prompt=consent`;
 
     // Open a popup window
     const width = 500;
