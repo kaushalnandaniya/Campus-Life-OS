@@ -89,6 +89,7 @@ function generateScheduleForDay(dayOffset: number, tasks: Task[]): ScheduleBlock
   });
 
   const urgentTasks = tasks.filter((t) => {
+    if (!t.deadline) return false;
     const deadline = new Date(t.deadline);
     const diff = (deadline.getTime() - date.getTime()) / (1000 * 60 * 60 * 24);
     return diff >= 0 && diff <= 3 && t.status !== "completed";
