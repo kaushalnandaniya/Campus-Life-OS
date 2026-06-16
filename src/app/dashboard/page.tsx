@@ -167,8 +167,8 @@ export default function DashboardPage() {
   }, [session]);
 
   // Stats
-  const actionableTasks = tasks.filter(t => t.taskType !== "notice");
-  const filteredNotices = tasks.filter(t => t.taskType === "notice");
+  const actionableTasks = tasks.filter(t => t.taskType !== "notice" && t.taskType !== "announcement");
+  const filteredNotices = tasks.filter(t => t.taskType === "notice" || t.taskType === "announcement");
 
   const pendingCount = actionableTasks.filter((t) => t.status === "pending" || t.status === "overdue" || t.status === "in_progress").length;
   const completedCount = actionableTasks.filter((t) => t.status === "completed").length;

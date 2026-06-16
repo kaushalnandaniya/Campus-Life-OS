@@ -8,6 +8,7 @@ const GEMINI_API_URL =
 
 const EXTRACTION_PROMPT = `Extract BOTH actionable items (tasks, events) AND non-actionable items (receipts, notices, executed orders) from emails into a JSON array:
 [{
+  "emailId": "The ID of the email this item came from",
   "title": "short name",
   "description": "1 sentence summary",
   "subjectCourse": "Course name, 'Personal', or 'General'",
@@ -22,6 +23,7 @@ Note: For non-actionable informational emails (like mutual fund executions, rece
 Return ONLY the JSON array (no markdown). Empty array [] if no items.`;
 
 interface GeminiExtractedTask {
+  emailId: string;
   title: string;
   description: string;
   subjectCourse: string;
@@ -261,20 +263,26 @@ ${e.body}
       const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const tasks = parseJsonResponse(responseText);
 
-      const allTasks = tasks.map((t: GeminiExtractedTask) => ({
-        id: `ai-${Math.random().toString(36).slice(2, 8)}`,
-        title: t.title,
-        description: t.description,
-        subjectCourse: t.subjectCourse || "General",
-        taskType: validateTaskType(t.taskType),
-        deadline: t.deadline || undefined,
-        estimatedEffortHours: Math.max(0.5, Math.min(t.estimatedEffortHours, 20)),
-        priority: validatePriority(t.priority),
-        status: "pending" as const,
-        source: "gmail" as const,
-        aiConfidence: Math.max(0, Math.min(t.confidence, 1)),
-        createdAt: new Date().toISOString(),
-      }));
+      const allTasks = tasks.map((t: GeminiExtractedTask) => {
+        // Find the original email to get its source account
+        const originalEmail = emails.find(e => e.id === t.emailId);
+        const sourceLabel = originalEmail?._sourceAccount ? `Gmail (${originalEmail._sourceAccount})` : "Gmail";
+
+        return {
+          id: `ai-${Math.random().toString(36).slice(2, 8)}`,
+          title: t.title,
+          description: t.description,
+          subjectCourse: t.subjectCourse || "General",
+          taskType: validateTaskType(t.taskType),
+          deadline: t.deadline || undefined,
+          estimatedEffortHours: Math.max(0.5, Math.min(t.estimatedEffortHours, 20)),
+          priority: validatePriority(t.priority),
+          status: "pending" as const,
+          source: sourceLabel as any, // Cast as any because the Task type strictly enforces "gmail" | "moodle", we'll update that next
+          aiConfidence: Math.max(0, Math.min(t.confidence, 1)),
+          createdAt: new Date().toISOString(),
+        };
+      });
 
       return deduplicateTasks(allTasks);
 
@@ -320,20 +328,25 @@ ${e.body}
         }
 
         if (Array.isArray(tasks)) {
-           const allTasks = tasks.map((t: any) => ({
-            id: `groq-${Math.random().toString(36).slice(2, 8)}`,
-            title: t.title || "Untitled",
-            description: t.description || "",
-            subjectCourse: t.subjectCourse || "General",
-            taskType: validateTaskType(t.taskType),
-            deadline: t.deadline || undefined,
-            estimatedEffortHours: Math.max(0.5, Math.min(t.estimatedEffortHours || 1, 20)),
-            priority: validatePriority(t.priority),
-            status: "pending" as const,
-            source: "gmail" as const,
-            aiConfidence: Math.max(0, Math.min(t.confidence || 0.8, 1)),
-            createdAt: new Date().toISOString(),
-          }));
+           const allTasks = tasks.map((t: any) => {
+            const originalEmail = emails.find(e => e.id === t.emailId);
+            const sourceLabel = originalEmail?._sourceAccount ? `Gmail (${originalEmail._sourceAccount})` : "Gmail";
+
+            return {
+              id: `groq-${Math.random().toString(36).slice(2, 8)}`,
+              title: t.title || "Untitled",
+              description: t.description || "",
+              subjectCourse: t.subjectCourse || "General",
+              taskType: validateTaskType(t.taskType),
+              deadline: t.deadline || undefined,
+              estimatedEffortHours: Math.max(0.5, Math.min(t.estimatedEffortHours || 1, 20)),
+              priority: validatePriority(t.priority),
+              status: "pending" as const,
+              source: sourceLabel as any,
+              aiConfidence: Math.max(0, Math.min(t.confidence || 0.8, 1)),
+              createdAt: new Date().toISOString(),
+            };
+          });
           console.log("[Groq] Fallback extraction successful!");
           return deduplicateTasks(allTasks);
         }

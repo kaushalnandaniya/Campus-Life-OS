@@ -11,7 +11,7 @@ export interface Task {
   estimatedEffortHours: number;
   priority: "low" | "medium" | "high" | "critical";
   status: "pending" | "in_progress" | "completed" | "overdue";
-  source: "gmail" | "moodle" | "classroom" | "manual";
+  source: string;
   aiConfidence: number;
   createdAt: string;
 }
