@@ -267,6 +267,7 @@ export function getWorkloadData(tasks: Task[] = demoTasks) {
 
     // Calculate effort from tasks due on this day
     const dayTasks = tasks.filter((t) => {
+      if (!t.deadline) return false;
       const d = new Date(t.deadline);
       return d.getDate() === date.getDate() && d.getMonth() === date.getMonth();
     });
@@ -300,6 +301,7 @@ export function getWorkloadData(tasks: Task[] = demoTasks) {
 // ===== BURNOUT SCORE CALCULATION =====
 export function calculateBurnoutScore(tasks: Task[] = demoTasks) {
   const next7DaysTasks = tasks.filter((t) => {
+    if (!t.deadline) return false;
     const d = new Date(t.deadline);
     const diff = (d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
     return diff >= 0 && diff <= 7;
@@ -325,12 +327,12 @@ export function calculateBurnoutScore(tasks: Task[] = demoTasks) {
 
   // Factor 4: Deadline clustering
   const deadlineDays = new Set(
-    next7DaysTasks.map((t) => new Date(t.deadline).getDate())
+    next7DaysTasks.map((t) => new Date(t.deadline!).getDate())
   );
   const maxPerDay = Math.max(
     ...Array.from(deadlineDays).map(
       (day) =>
-        next7DaysTasks.filter((t) => new Date(t.deadline).getDate() === day).length
+        next7DaysTasks.filter((t) => new Date(t.deadline!).getDate() === day).length
     ),
     0
   );
