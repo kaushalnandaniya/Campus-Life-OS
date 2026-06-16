@@ -244,8 +244,8 @@ ${e.body}
       if (!res.ok) {
         const errorData = await res.json();
         
-        // If 429 Rate Limit or 404 Model Not Found, log and try next model
-        if (res.status === 429 || res.status === 404) {
+        // If 429 Rate Limit, 404 Model Not Found, or 503 High Demand, log and try next model
+        if (res.status === 429 || res.status === 404 || res.status === 503) {
           console.warn(`[Gemini] Model ${model} failed (${res.status}). Trying fallback...`);
           lastError = errorData;
           continue; // Try next model in the array
