@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   TrendingUp,
   Inbox,
+  Bell,
 } from "lucide-react";
 
 type FilterType = "all" | "pending" | "in_progress" | "completed";
