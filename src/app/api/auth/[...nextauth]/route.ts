@@ -64,6 +64,12 @@ const handler = NextAuth({
   ],
   callbacks: {
     async jwt({ token, account }) {
+      // Import supabase dynamically to avoid top-level issues in NextAuth
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
       // Initial sign in
       if (account) {
         token.accessToken = account.access_token;
@@ -71,6 +77,18 @@ const handler = NextAuth({
         token.accessTokenExpires = account.expires_at
           ? account.expires_at * 1000
           : Date.now() + 3600 * 1000;
+          
+        // Upsert into Supabase Vault
+        if (token.email) {
+          await supabase.from('connected_accounts').upsert({
+            user_email: token.email,
+            account_email: token.email, // Primary account has same account_email as user_email
+            access_token: token.accessToken,
+            refresh_token: token.refreshToken,
+            expires_at: token.accessTokenExpires
+          }, { onConflict: 'user_email, account_email' });
+        }
+        
         return token;
       }
 
@@ -80,7 +98,18 @@ const handler = NextAuth({
       }
 
       // Access token has expired, try to update it
-      return refreshAccessToken(token);
+      const refreshedToken = await refreshAccessToken(token);
+      
+      // Update the vault with the new access token
+      if (refreshedToken.email && refreshedToken.accessToken) {
+         await supabase.from('connected_accounts').update({
+           access_token: refreshedToken.accessToken,
+           refresh_token: refreshedToken.refreshToken,
+           expires_at: refreshedToken.accessTokenExpires
+         }).match({ user_email: refreshedToken.email, account_email: refreshedToken.email });
+      }
+      
+      return refreshedToken;
     },
     async session({ session, token }) {
       // Pass access token and error to client session

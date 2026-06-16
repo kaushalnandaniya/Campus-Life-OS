@@ -50,11 +50,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const accountEmail = profileData.emailAddress.toLowerCase();
+
+    // Get NextAuth session to know the primary user
+    const { getServerSession } = await import("next-auth");
+    const session = await getServerSession();
+    
+    if (session?.user?.email) {
+      const primaryEmail = session.user.email.toLowerCase();
+      
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      
+      await supabase.from('connected_accounts').upsert({
+        user_email: primaryEmail,
+        account_email: accountEmail,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: Date.now() + tokens.expires_in * 1000
+      }, { onConflict: 'user_email, account_email' });
+    }
+
     return NextResponse.json({
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       expiresIn: tokens.expires_in,
-      email: profileData.emailAddress,
+      email: accountEmail,
     });
   } catch (error) {
     console.error("Exchange route error:", error);
