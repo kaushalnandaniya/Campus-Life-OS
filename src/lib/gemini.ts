@@ -238,7 +238,8 @@ ${e.body}
           ],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 4096,
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json",
           },
         }),
       });
@@ -265,6 +266,8 @@ ${e.body}
       const parts = data.candidates?.[0]?.content?.parts || [];
       const textPart = parts.find((p: any) => p.text);
       const responseText = textPart ? textPart.text : "";
+      
+      console.log(`[Gemini Debug] Raw response length: ${responseText.length}. First 200 chars: ${responseText.substring(0, 200)}`);
       
       const tasks = parseJsonResponse(responseText);
 
