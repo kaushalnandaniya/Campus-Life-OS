@@ -144,15 +144,18 @@ function parseJsonResponse(text: string): GeminiExtractedTask[] {
     
     return [];
   } catch (e) {
+    console.error("[Gemini Debug] JSON.parse threw error on full string:", e);
     // Try to find JSON array in the text
     const match = cleaned.match(/\[[\s\S]*\]/);
     if (match) {
       try {
         return JSON.parse(match[0]);
-      } catch {
-        console.error("Failed to parse extracted JSON:", e);
+      } catch (e2) {
+        console.error("[Gemini Debug] Failed to parse matched regex JSON:", e2);
         return [];
       }
+    } else {
+      console.error("[Gemini Debug] No JSON array match found in text.");
     }
     return [];
   }
@@ -267,9 +270,16 @@ ${e.body}
       const textPart = parts.find((p: any) => p.text);
       const responseText = textPart ? textPart.text : "";
       
-      console.log(`[Gemini Debug] Raw response length: ${responseText.length}. First 200 chars: ${responseText.substring(0, 200)}`);
+      console.log(`[Gemini Debug] Raw response length: ${responseText.length}. First 100: ${responseText.substring(0, 100).replace(/\n/g, '')} | Last 100: ${responseText.substring(responseText.length - 100).replace(/\n/g, '')}`);
       
-      const tasks = parseJsonResponse(responseText);
+      let tasks;
+      try {
+        tasks = parseJsonResponse(responseText);
+      } catch (parseErr) {
+        console.error("[Gemini Debug] Exception thrown OUTSIDE parseJsonResponse??", parseErr);
+        tasks = [];
+      }
+      console.log(`[Gemini Debug] Parsed array length: ${tasks.length}`);
 
       const allTasks = tasks.map((t: GeminiExtractedTask) => {
         // Find the original email to get its source account
