@@ -192,7 +192,7 @@ const FALLBACK_MODELS = [
  * Batch extract tasks from multiple emails in a SINGLE request to avoid rate limits
  */
 export async function extractTasksFromEmails(
-  emails: { id: string; subject: string; from: string; body: string }[]
+  emails: { id: string; subject: string; from: string; body: string; _sourceAccount?: string }[]
 ): Promise<Partial<Task>[]> {
   const apiKey = process.env.GEMINI_API_KEY;
 
