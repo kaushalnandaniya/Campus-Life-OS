@@ -84,7 +84,7 @@ export default function SettingsPage() {
 
     // Use a manual OAuth flow to completely bypass the "Authorized JavaScript origins" Google Cloud bug
     // We will use the redirect URI which we KNOW works because NextAuth uses it successfully!
-    const redirectUri = `http://localhost:3000/oauth/callback`;
+    const redirectUri = `${window.location.origin}/oauth/callback`;
     const scope = "https://www.googleapis.com/auth/gmail.readonly";
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}&prompt=consent`;
 
