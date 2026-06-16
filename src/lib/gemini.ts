@@ -262,6 +262,12 @@ ${e.body}
               }
             }
           },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+          ]
         }),
       });
 
@@ -287,6 +293,9 @@ ${e.body}
       const parts = data.candidates?.[0]?.content?.parts || [];
       const textPart = parts.find((p: any) => p.text);
       const responseText = textPart ? textPart.text : "";
+      
+      const finishReason = data.candidates?.[0]?.finishReason;
+      console.log(`[Gemini Debug] Finish Reason: ${finishReason}`);
       
       console.log(`[Gemini Debug] Raw response length: ${responseText.length}. First 100: ${responseText.substring(0, 100).replace(/\n/g, '')} | Last 100: ${responseText.substring(responseText.length - 100).replace(/\n/g, '')}`);
       
