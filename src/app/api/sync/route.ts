@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
         description: t.description,
         subject_course: t.subjectCourse,
         task_type: t.taskType,
-        deadline: t.deadline ? new Date(t.deadline).toISOString() : null,
+        deadline: t.deadline && t.deadline !== "null" ? new Date(t.deadline).toISOString() : null,
         estimated_effort_hours: t.estimatedEffortHours,
         priority: t.priority,
         status: t.status,
