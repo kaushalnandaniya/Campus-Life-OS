@@ -260,7 +260,12 @@ ${e.body}
 
       // Success! Parse and return tasks
       const data = await res.json();
-      const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      
+      // Advanced models (2.0+) may return a 'thought' object before the 'text' object
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      const textPart = parts.find((p: any) => p.text);
+      const responseText = textPart ? textPart.text : "";
+      
       const tasks = parseJsonResponse(responseText);
 
       const allTasks = tasks.map((t: GeminiExtractedTask) => {
