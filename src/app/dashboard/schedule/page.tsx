@@ -1,6 +1,9 @@
 "use client";
 
-import { demoTasks, demoActivities } from "@/lib/demo-data";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { supabase } from "@/lib/supabase";
+import { demoActivities, type Task } from "@/lib/demo-data";
 import {
   CalendarDays,
   Sparkles,
@@ -8,6 +11,7 @@ import {
   Dumbbell,
   Coffee,
   Moon,
+  Loader2,
 } from "lucide-react";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -21,7 +25,7 @@ interface ScheduleBlock {
   course?: string;
 }
 
-function generateScheduleForDay(dayOffset: number): ScheduleBlock[] {
+function generateScheduleForDay(dayOffset: number, tasks: Task[]): ScheduleBlock[] {
   const date = new Date();
   date.setDate(date.getDate() + dayOffset);
   const dayOfWeek = date.getDay();
@@ -84,7 +88,7 @@ function generateScheduleForDay(dayOffset: number): ScheduleBlock[] {
     course: "DBMS",
   });
 
-  const urgentTasks = demoTasks.filter((t) => {
+  const urgentTasks = tasks.filter((t) => {
     const deadline = new Date(t.deadline);
     const diff = (deadline.getTime() - date.getTime()) / (1000 * 60 * 60 * 24);
     return diff >= 0 && diff <= 3 && t.status !== "completed";
@@ -95,7 +99,7 @@ function generateScheduleForDay(dayOffset: number): ScheduleBlock[] {
       time: "14:30",
       title: `Work on: ${urgentTasks[0].title}`,
       type: "ai-suggested",
-      duration: `${Math.min(urgentTasks[0].estimatedEffortHours, 2)}h`,
+      duration: `${Math.min(urgentTasks[0].estimatedEffortHours || 2, 2)}h`,
       icon: <Sparkles className="w-3.5 h-3.5" />,
       course: urgentTasks[0].subjectCourse,
     });
@@ -106,7 +110,7 @@ function generateScheduleForDay(dayOffset: number): ScheduleBlock[] {
       time: "17:00",
       title: `Work on: ${urgentTasks[1].title}`,
       type: "ai-suggested",
-      duration: `${Math.min(urgentTasks[1].estimatedEffortHours, 2)}h`,
+      duration: `${Math.min(urgentTasks[1].estimatedEffortHours || 2, 2)}h`,
       icon: <Sparkles className="w-3.5 h-3.5" />,
       course: urgentTasks[1].subjectCourse,
     });
@@ -140,7 +144,52 @@ function generateScheduleForDay(dayOffset: number): ScheduleBlock[] {
 }
 
 export default function SchedulePage() {
+  const { data: session } = useSession();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const userEmail = session?.user?.email;
+    if (!userEmail) return;
+
+    const fetchTasks = async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_email", userEmail)
+        .order("deadline", { ascending: true });
+
+      if (!error && data) {
+        const formattedTasks: Task[] = data.map((t) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          subjectCourse: t.subject_course,
+          taskType: t.task_type,
+          deadline: t.deadline,
+          estimatedEffortHours: t.estimated_effort_hours,
+          priority: t.priority,
+          status: t.status,
+          source: t.source,
+          aiConfidence: t.ai_confidence,
+        }));
+        setTasks(formattedTasks);
+      }
+      setLoading(false);
+    };
+
+    fetchTasks();
+  }, [session]);
+
   const today = new Date();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-[var(--accent)] animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -162,7 +211,7 @@ export default function SchedulePage() {
         {[0, 1, 2].map((offset) => {
           const date = new Date(today);
           date.setDate(date.getDate() + offset);
-          const blocks = generateScheduleForDay(offset);
+          const blocks = generateScheduleForDay(offset, tasks);
           const label =
             offset === 0
               ? "Today"

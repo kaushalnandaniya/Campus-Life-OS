@@ -257,7 +257,7 @@ export const demoConflicts: ConflictAlert[] = [
 ];
 
 // ===== WORKLOAD DATA =====
-export function getWorkloadData() {
+export function getWorkloadData(tasks: Task[] = demoTasks) {
   const data = [];
   for (let i = 0; i < 14; i++) {
     const date = new Date(today);
@@ -266,12 +266,12 @@ export function getWorkloadData() {
     const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
     // Calculate effort from tasks due on this day
-    const dayTasks = demoTasks.filter((t) => {
+    const dayTasks = tasks.filter((t) => {
       const d = new Date(t.deadline);
       return d.getDate() === date.getDate() && d.getMonth() === date.getMonth();
     });
 
-    const academicHours = dayTasks.reduce((sum, t) => sum + t.estimatedEffortHours, 0);
+    const academicHours = dayTasks.reduce((sum, t) => sum + (t.estimatedEffortHours || 0), 0);
 
     // Personal activity hours
     const dayOfWeek = date.getDay();
@@ -298,8 +298,8 @@ export function getWorkloadData() {
 }
 
 // ===== BURNOUT SCORE CALCULATION =====
-export function calculateBurnoutScore() {
-  const next7DaysTasks = demoTasks.filter((t) => {
+export function calculateBurnoutScore(tasks: Task[] = demoTasks) {
+  const next7DaysTasks = tasks.filter((t) => {
     const d = new Date(t.deadline);
     const diff = (d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
     return diff >= 0 && diff <= 7;
@@ -312,7 +312,7 @@ export function calculateBurnoutScore() {
   else if (next7DaysTasks.length > 3) score += 15;
 
   // Factor 2: Total effort
-  const totalEffort = next7DaysTasks.reduce((s, t) => s + t.estimatedEffortHours, 0);
+  const totalEffort = next7DaysTasks.reduce((s, t) => s + (t.estimatedEffortHours || 0), 0);
   if (totalEffort > 20) score += 25;
   else if (totalEffort > 12) score += 15;
 

@@ -32,8 +32,8 @@ export default function DashboardPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
-  const workloadData = getWorkloadData();
-  const burnout = calculateBurnoutScore();
+  const workloadData = getWorkloadData(tasks);
+  const burnout = calculateBurnoutScore(tasks);
 
   // Load tasks from Supabase on mount
   useEffect(() => {

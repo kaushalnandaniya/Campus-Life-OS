@@ -1,6 +1,9 @@
 "use client";
 
-import { calculateBurnoutScore } from "@/lib/demo-data";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { supabase } from "@/lib/supabase";
+import { calculateBurnoutScore, type Task } from "@/lib/demo-data";
 import BurnoutMeter from "@/components/BurnoutMeter";
 import {
   Activity,
@@ -11,10 +14,56 @@ import {
   Shield,
   TrendingDown,
   TrendingUp,
+  Loader2,
 } from "lucide-react";
 
 export default function BurnoutPage() {
-  const burnout = calculateBurnoutScore();
+  const { data: session } = useSession();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const userEmail = session?.user?.email;
+    if (!userEmail) return;
+
+    const fetchTasks = async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_email", userEmail)
+        .order("deadline", { ascending: true });
+
+      if (!error && data) {
+        const formattedTasks: Task[] = data.map((t) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          subjectCourse: t.subject_course,
+          taskType: t.task_type,
+          deadline: t.deadline,
+          estimatedEffortHours: t.estimated_effort_hours,
+          priority: t.priority,
+          status: t.status,
+          source: t.source,
+          aiConfidence: t.ai_confidence,
+        }));
+        setTasks(formattedTasks);
+      }
+      setLoading(false);
+    };
+
+    fetchTasks();
+  }, [session]);
+
+  const burnout = calculateBurnoutScore(tasks);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-[var(--accent)] animate-spin" />
+      </div>
+    );
+  }
 
   const tips =
     burnout.level === "high"
