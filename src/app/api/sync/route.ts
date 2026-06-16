@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
         subject: e.subject,
         from: e.from,
         body: e.body,
+        _sourceAccount: e._sourceAccount,
       }))
     );
     console.log(`[Sync] Extracted ${extractedTasks.length} tasks`);
