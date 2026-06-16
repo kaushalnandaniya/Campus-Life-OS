@@ -84,7 +84,7 @@ export default function SettingsPage() {
 
     // Use a manual OAuth flow to completely bypass the "Authorized JavaScript origins" Google Cloud bug
     // We will use the redirect URI which we KNOW works because NextAuth uses it successfully!
-    const redirectUri = `${window.location.origin}/oauth/callback`;
+    const redirectUri = `http://localhost:3000/oauth/callback`;
     const scope = "https://www.googleapis.com/auth/gmail.readonly";
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}&prompt=consent`;
 
@@ -321,6 +321,30 @@ export default function SettingsPage() {
               className="btn-secondary text-[var(--color-danger)] hover:bg-[rgba(239,68,68,0.1)] hover:border-[var(--color-danger)]"
             >
               Reset
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-[var(--border)]">
+            <div>
+              <p className="text-[13px] text-[var(--text-primary)] text-[var(--color-danger)]">Danger Zone: Clear Database</p>
+              <p className="text-[11px] text-[var(--text-muted)] max-w-[250px]">
+                Permanently delete all synced tasks from your account. 
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                if (confirm("Are you sure you want to delete ALL tasks? This cannot be undone.")) {
+                  const { supabase } = await import("@/lib/supabase");
+                  const userEmail = session?.user?.email;
+                  if (userEmail) {
+                    await supabase.from("tasks").delete().eq("user_email", userEmail);
+                    alert("All tasks deleted! You can now run a fresh sync from the dashboard.");
+                  }
+                }
+              }}
+              className="btn-secondary text-[var(--color-danger)] hover:bg-[rgba(239,68,68,0.1)] hover:border-[var(--color-danger)]"
+            >
+              Wipe Tasks
             </button>
           </div>
         </div>
