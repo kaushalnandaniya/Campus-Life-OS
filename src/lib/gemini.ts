@@ -183,9 +183,9 @@ function validatePriority(priority: string): Task["priority"] {
 
 // Standard models to try, falling back if rate limited
 const FALLBACK_MODELS = [
-  "gemini-1.5-flash", // Current stable fast model
-  "gemini-1.5-pro",   // High capacity fallback
-  "gemini-1.0-pro"    // Legacy reliable fallback
+  "gemini-3.5-flash", // Next-gen fast model available on your project
+  "gemini-2.5-flash", // Stable next-gen model
+  "gemini-flash-latest" // Dynamic routing fallback
 ];
 
 /**
