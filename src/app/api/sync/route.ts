@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       
       const dbTasks = [];
       
-      for (const t of extractedTasks) {
+      for (const t of extractedTasks as any[]) {
         // Find which account this task came from (via the original email source)
         const originalEmail = mappedEmails.find((e) => e.id === t.emailId);
         const sourceEmail = originalEmail?._sourceAccount || userEmail;
