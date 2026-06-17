@@ -25,36 +25,33 @@ Students waste hours manually transferring deadlines from syllabi and emails int
 
 **Campus Life OS** solves this by securely connecting to both your academic and personal inboxes, using AI to passively scan for tasks, deadlines, and announcements, and centralizing them into a single, beautiful, and predictive dashboard.
 
-## 🚀 Current Progress (Mid-Evaluation)
+## 🚀 Current Progress
 
-We have successfully built the core functional prototype. The current state of the project includes:
+We have successfully built the core functional prototype and deployed a robust, autonomous backend architecture. The current state of the project includes:
 
 - **Full-Stack Next.js Application:** A responsive, glassmorphism-inspired UI with a unified dashboard.
-- **True Multi-Account OAuth:** Users can sign in with their primary academic email and securely link multiple personal Google accounts using Google Identity Services.
-- **Parallel Inbox Syncing:** The backend simultaneously fetches emails from all connected accounts without requiring auto-forwarding.
-- **AI Task Extraction Engine:** Integration with Gemini/Groq LLMs to scan emails, classify them as actionable tasks (Assignments, Quizzes, Meetings) or informational updates (Notices, Receipts), and estimate completion effort.
+- **True Multi-Account OAuth & Token Vault:** Users can sign in with their primary academic email and securely link multiple personal Google accounts. We built a custom **Supabase Token Vault** to securely store OAuth `refresh_tokens`, completely bypassing standard frontend limitations.
+- **True Offline Background Sync:** A fully autonomous Vercel Cron engine (`/api/cron/sync`) runs in the background. Even when the user's laptop is completely shut down, it automatically intercepts expired Google tokens, uses the vault to silently swap them for fresh access tokens, and continuously pulls emails.
+- **AI Task Extraction Engine:** Integration with Gemini (with Groq Llama 3 fallback) to scan emails, classify them as actionable tasks (Assignments, Quizzes, Meetings) or informational updates (Notices, Receipts), and estimate completion effort. Built-in batch chunking prevents LLM token limits from crashing the sync.
 - **Intelligent Dashboard:** 
   - Dynamic Task To-Do list with priority sorting and active/completed filtering.
   - "Notices & Updates" feed that intelligently categorizes non-actionable emails and announcements.
   - **Burnout Predictor:** A visual workload gauge that calculates effort hours vs. deadlines to warn students of impending burnout.
-- **Resilient AI Pipeline:** Built-in rate limit handling with automatic failover from Google Gemini to alternative LLMs (Groq Llama 3) during high-demand spikes.
-- **Enhanced Data Tracking & Cleanup:** Tasks and notices display their exact origin inbox (e.g., `Gmail (student@college.edu)`), and the dashboard performs an automatic background weekly cleanup of old completed tasks to prevent clutter.
-- **Smart Scheduling Engine:** A dynamic timeline that interweaves a student's fixed baseline schedule (classes/labs) with AI-suggested study blocks generated perfectly around impending task deadlines.
-- **Supabase Integration:** Live PostgreSQL database setup for persisting synced tasks and multi-account data securely.
+- **Enhanced Data Tracking:** Tasks and notices display their exact origin inbox (e.g., `Gmail (student@college.edu)`).
+- **Supabase Integration:** Live PostgreSQL database setup for persisting synced tasks and the multi-account Token Vault securely.
 
 ## 💻 Tech Stack
 
 - **Frontend:** Next.js 14 (App Router), React, Tailwind CSS, Lucide Icons, Recharts (for data visualization).
-- **Backend:** Next.js Serverless Route Handlers, Google Cloud (Gmail API & Google Identity Services).
+- **Backend:** Next.js Serverless Route Handlers, Vercel Cron Jobs, Google Cloud (Gmail API & Google Identity Services).
 - **Database / Auth:** Supabase (PostgreSQL), NextAuth.js.
 - **AI / Machine Learning:** Google Gemini Flash API (with Groq fallback) for natural language processing and task extraction.
 
-## 🔮 Planned Features (Post Mid-Eval)
+## 🔮 Planned Features (Post-Buildathon)
 
 Moving forward to the final submission, we plan to implement:
 1. **Google Calendar Bi-directional Sync:** Automatically push extracted deadlines directly to the user's Google Calendar, and pull existing calendar events into the dashboard.
-2. **Automated Background Sync:** Migrate from manual "Sync" button clicks to background cron jobs that keep the dashboard perpetually up to date.
-3. **Smart Conflict Resolution:** AI-driven suggestions for rescheduling low-priority tasks when the Burnout Predictor detects high stress levels.
+2. **Smart Conflict Resolution:** AI-driven suggestions for rescheduling low-priority tasks when the Burnout Predictor detects high stress levels.
 
 ## 📂 Repository Structure
 
