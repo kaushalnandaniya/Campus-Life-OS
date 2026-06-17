@@ -299,7 +299,7 @@ ${e.body}
       
       console.log(`[Gemini Debug] Raw response length: ${responseText.length}. First 100: ${responseText.substring(0, 100).replace(/\n/g, '')} | Last 100: ${responseText.substring(responseText.length - 100).replace(/\n/g, '')}`);
       
-      let tasks;
+      let tasks: any[] = [];
       try {
         tasks = parseJsonResponse(responseText);
       } catch (parseErr) {
