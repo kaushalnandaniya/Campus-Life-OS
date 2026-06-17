@@ -129,21 +129,32 @@ export async function GET(req: NextRequest) {
 
       console.log(`[Cron Sync] Extracted ${extractedTasks.length} tasks for ${account.account_email}.`);
 
-      // 5. Save to Supabase
+      // 5. Save to Supabase and Push to Google Calendar
       if (extractedTasks.length > 0) {
-        const dbTasks = extractedTasks.map((t) => ({
-          user_email: account.user_email, // Link task to the primary user dashboard
-          title: t.title,
-          description: t.description,
-          subject_course: t.subjectCourse,
-          task_type: t.taskType,
-          deadline: t.deadline && t.deadline !== "null" ? new Date(t.deadline).toISOString() : null,
-          estimated_effort_hours: t.estimatedEffortHours,
-          priority: t.priority,
-          status: t.status,
-          source: t.source,
-          ai_confidence: t.aiConfidence,
-        }));
+        const { pushTaskToCalendar } = await import("@/lib/gcal");
+        
+        const dbTasks = [];
+        for (const t of extractedTasks) {
+           let gcal_event_id = null;
+           if (t.deadline && t.deadline !== "null") {
+             gcal_event_id = await pushTaskToCalendar(accessToken, t);
+           }
+           
+           dbTasks.push({
+             user_email: account.user_email, // Link task to the primary user dashboard
+             title: t.title,
+             description: t.description,
+             subject_course: t.subjectCourse,
+             task_type: t.taskType,
+             deadline: t.deadline && t.deadline !== "null" ? new Date(t.deadline).toISOString() : null,
+             estimated_effort_hours: t.estimatedEffortHours,
+             priority: t.priority,
+             status: t.status,
+             source: t.source,
+             ai_confidence: t.aiConfidence,
+             gcal_event_id: gcal_event_id
+           });
+        }
 
         const { error: dbError } = await supabase.from("tasks").insert(dbTasks);
         if (dbError) {

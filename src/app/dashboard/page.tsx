@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Inbox,
   Bell,
+  Calendar,
 } from "lucide-react";
 
 type FilterType = "active" | "pending" | "in_progress" | "completed";
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState<FilterType>("active");
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
 
   const workloadData = getWorkloadData(tasks);
   const burnout = calculateBurnoutScore(tasks);
@@ -94,8 +96,22 @@ export default function DashboardPage() {
       }
     };
 
+    const fetchCalendar = async () => {
+      try {
+        const res = await fetch("/api/calendar");
+        const data = await res.json();
+        if (data.events) {
+          setCalendarEvents(data.events);
+        }
+      } catch (err) {
+        console.error("Failed to fetch calendar:", err);
+      }
+    };
+
     fetchTasks();
+    fetchCalendar();
   }, [session]);
+
 
   // Real email sync
   const handleSync = useCallback(async () => {
@@ -422,6 +438,51 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Calendar Events Widget */}
+          {calendarEvents.length > 0 && (
+            <div className="glass-card p-5 animate-fade-in-up stagger-1 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[var(--color-warning)]" />
+                  <h2 className="text-sm font-medium text-[var(--text-primary)]">
+                    Upcoming Schedule
+                  </h2>
+                </div>
+                <span className="badge badge-medium">{calendarEvents.length}</span>
+              </div>
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                {calendarEvents.map((event) => {
+                  const startDate = new Date(event.startTime);
+                  const isToday = startDate.toDateString() === new Date().toDateString();
+                  return (
+                    <a
+                      key={event.id}
+                      href={event.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block p-3 rounded-md bg-[var(--bg-surface)] border border-[var(--border)] hover:border-[var(--accent)] transition-colors group"
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="text-[13px] font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors truncate pr-2">
+                          {event.title}
+                        </h3>
+                        <span className={`text-[10px] whitespace-nowrap px-1.5 py-0.5 rounded-sm ${isToday ? 'bg-[var(--accent-dim)] text-[var(--accent)]' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)]'}`}>
+                          {isToday ? "Today" : startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1 text-[11px] text-[var(--text-muted)]">
+                        <Clock className="w-3 h-3" />
+                        <span>
+                          {startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    </a>
+                  );
+                })}
               </div>
             </div>
           )}

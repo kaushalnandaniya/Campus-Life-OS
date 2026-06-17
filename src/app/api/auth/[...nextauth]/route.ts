@@ -48,12 +48,13 @@ const handler = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
       authorization: {
         params: {
-          // Request Gmail read-only access to passively scan emails
+          // Request Gmail read-only access and Calendar access
           scope: [
             "openid",
             "email",
             "profile",
             "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/calendar",
           ].join(" "),
           prompt: "consent",
           access_type: "offline",

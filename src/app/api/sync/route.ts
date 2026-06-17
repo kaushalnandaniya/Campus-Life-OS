@@ -85,22 +85,40 @@ export async function POST(req: NextRequest) {
 
     const userEmail = accounts[0]?.email;
     if (extractedTasks.length > 0 && userEmail) {
-      // Step 4: Save to Supabase
+      // Step 4: Save to Supabase and Push to Google Calendar
       const { supabase } = await import("@/lib/supabase");
+      const { pushTaskToCalendar } = await import("@/lib/gcal");
       
-      const dbTasks = extractedTasks.map((t) => ({
-        user_email: userEmail,
-        title: t.title,
-        description: t.description,
-        subject_course: t.subjectCourse,
-        task_type: t.taskType,
-        deadline: t.deadline && t.deadline !== "null" ? new Date(t.deadline).toISOString() : null,
-        estimated_effort_hours: t.estimatedEffortHours,
-        priority: t.priority,
-        status: t.status,
-        source: t.source,
-        ai_confidence: t.aiConfidence,
-      }));
+      const dbTasks = [];
+      
+      for (const t of extractedTasks) {
+        // Find which account this task came from (via the original email source)
+        const originalEmail = mappedEmails.find((e) => e.id === t.emailId);
+        const sourceEmail = originalEmail?._sourceAccount || userEmail;
+        
+        // Find the access token for this source email
+        const sourceAccount = accounts.find((a: any) => a.email === sourceEmail) || accounts[0];
+        
+        let gcal_event_id = null;
+        if (t.deadline && t.deadline !== "null") {
+          gcal_event_id = await pushTaskToCalendar(sourceAccount.accessToken, t);
+        }
+
+        dbTasks.push({
+          user_email: userEmail,
+          title: t.title,
+          description: t.description,
+          subject_course: t.subjectCourse,
+          task_type: t.taskType,
+          deadline: t.deadline && t.deadline !== "null" ? new Date(t.deadline).toISOString() : null,
+          estimated_effort_hours: t.estimatedEffortHours,
+          priority: t.priority,
+          status: t.status,
+          source: t.source,
+          ai_confidence: t.aiConfidence,
+          gcal_event_id: gcal_event_id
+        });
+      }
 
       const { error: dbError } = await supabase.from("tasks").insert(dbTasks);
       if (dbError) {
