@@ -1,12 +1,10 @@
-import { GeminiExtractedTask } from "./gemini";
-
 /**
  * Pushes a task to the user's Google Calendar as an event.
  * @param accessToken The access token for the specific Google Account.
  * @param task The task to be added.
  * @returns The Calendar Event ID, or null if failed.
  */
-export async function pushTaskToCalendar(accessToken: string, task: GeminiExtractedTask): Promise<string | null> {
+export async function pushTaskToCalendar(accessToken: string, task: any): Promise<string | null> {
   // We only push tasks that have a deadline
   if (!task.deadline || task.deadline === "null") {
     return null;
