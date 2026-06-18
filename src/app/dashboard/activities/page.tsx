@@ -11,7 +11,7 @@ const emojis = ["🏋️", "🏀", "⚽", "🏊", "🎵", "📖", "😴", "🧘"
 
 export default function ActivitiesPage() {
   const { data: session } = useSession();
-  const [activities, setActivities] = useState<PersonalActivity[]>(demoActivities);
+  const [activities, setActivities] = useState<PersonalActivity[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [newActivity, setNewActivity] = useState({
     title: "",

@@ -29,7 +29,7 @@ type FilterType = "active" | "pending" | "in_progress" | "completed";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const [tasks, setTasks] = useState<Task[]>(demoTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<FilterType>("active");
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
@@ -343,7 +343,7 @@ export default function DashboardPage() {
       )}
 
       {/* Conflict Alerts */}
-      <ConflictBanner conflicts={demoConflicts} />
+      <ConflictBanner conflicts={[]} />
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up stagger-1">
