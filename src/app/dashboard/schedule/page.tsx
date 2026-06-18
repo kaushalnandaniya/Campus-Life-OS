@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
-import { demoActivities, type Task } from "@/lib/demo-data";
+import { type Task } from "@/lib/demo-data";
 import {
   CalendarDays,
   Sparkles,
@@ -12,176 +12,303 @@ import {
   Coffee,
   Moon,
   Loader2,
+  Clock,
+  Plus,
+  X,
+  Settings,
+  Trash2,
 } from "lucide-react";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-interface ScheduleBlock {
-  time: string;
+interface BaselineEvent {
+  id: string;
   title: string;
-  type: "academic" | "personal" | "break" | "ai-suggested";
-  duration: string;
-  icon: React.ReactNode;
+  type: "academic" | "personal";
+  daysOfWeek: number[]; // 0=Sun, 1=Mon, etc.
+  startTime: string; // "09:00"
+  endTime: string; // "10:30"
   course?: string;
 }
 
-function generateScheduleForDay(dayOffset: number, tasks: Task[]): ScheduleBlock[] {
-  const date = new Date();
-  date.setDate(date.getDate() + dayOffset);
-  const dayOfWeek = date.getDay();
+interface CalendarEvent {
+  id: string;
+  title: string;
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  sourceAccount: string;
+}
+
+interface ScheduleBlock {
+  id: string;
+  time: string;
+  endTimeStr: string;
+  title: string;
+  type: "academic" | "personal" | "break" | "ai-suggested" | "calendar";
+  duration: string;
+  icon?: React.ReactNode;
+  course?: string;
+  color?: string;
+}
+
+function timeToMinutes(timeStr: string) {
+  const [h, m] = timeStr.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function minutesToTime(mins: number) {
+  const h = Math.floor(mins / 60)
+    .toString()
+    .padStart(2, "0");
+  const m = (mins % 60).toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function formatDuration(mins: number) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+}
+
+function generateSmartSchedule(
+  targetDate: Date,
+  baselineRoutine: BaselineEvent[],
+  calendarEvents: CalendarEvent[],
+  tasks: Task[]
+): ScheduleBlock[] {
+  const dayOfWeek = targetDate.getDay();
+  const dateString = targetDate.toDateString();
 
   const blocks: ScheduleBlock[] = [];
 
-  blocks.push({
-    time: "06:00",
-    title: "Wake Up",
-    type: "personal",
-    duration: "30 min",
-    icon: <Coffee className="w-3.5 h-3.5" />,
+  // 1. Add Baseline Events for this day
+  const todaysBaseline = baselineRoutine.filter((e) =>
+    e.daysOfWeek.includes(dayOfWeek)
+  );
+  todaysBaseline.forEach((e) => {
+    blocks.push({
+      id: e.id,
+      time: e.startTime,
+      endTimeStr: e.endTime,
+      title: e.title,
+      type: e.type,
+      duration: formatDuration(timeToMinutes(e.endTime) - timeToMinutes(e.startTime)),
+      course: e.course,
+    });
   });
 
-  const morningActivity = demoActivities.find(
-    (a) => a.daysOfWeek.includes(dayOfWeek) && a.startTime < "08:00"
-  );
-  if (morningActivity) {
+  // 2. Add Google Calendar Events for this day
+  const todaysCalendarEvents = calendarEvents.filter((e) => {
+    const d = new Date(e.startTime);
+    return d.toDateString() === dateString;
+  });
+
+  todaysCalendarEvents.forEach((e) => {
+    const startMins = new Date(e.startTime).getHours() * 60 + new Date(e.startTime).getMinutes();
+    const endMins = new Date(e.endTime).getHours() * 60 + new Date(e.endTime).getMinutes();
+    
+    // Skip all day events or multi-day for simplicity in this visual schedule
+    if (endMins - startMins <= 0) return;
+
     blocks.push({
-      time: morningActivity.startTime,
-      title: morningActivity.title,
-      type: "personal",
-      duration: `${morningActivity.startTime} - ${morningActivity.endTime}`,
-      icon: <Dumbbell className="w-3.5 h-3.5" />,
+      id: e.id,
+      time: minutesToTime(startMins),
+      endTimeStr: minutesToTime(endMins),
+      title: e.title,
+      type: "calendar",
+      duration: formatDuration(endMins - startMins),
     });
+  });
+
+  // 3. Find Free Gaps & Inject AI Tasks
+  // We assume waking hours are 08:00 to 22:00
+  const WAKE_TIME = 8 * 60;
+  const SLEEP_TIME = 22 * 60;
+
+  // Sort blocks chronologically
+  blocks.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+
+  let currentMins = WAKE_TIME;
+  const freeGaps: { start: number; end: number }[] = [];
+
+  for (const block of blocks) {
+    const blockStart = timeToMinutes(block.time);
+    const blockEnd = timeToMinutes(block.endTimeStr);
+
+    if (blockStart > currentMins) {
+      freeGaps.push({ start: currentMins, end: blockStart });
+    }
+    currentMins = Math.max(currentMins, blockEnd);
   }
 
-  blocks.push({
-    time: "09:00",
-    title: "Data Structures Lecture",
-    type: "academic",
-    duration: "1h",
-    icon: <BookOpen className="w-3.5 h-3.5" />,
-    course: "DSA",
-  });
+  if (currentMins < SLEEP_TIME) {
+    freeGaps.push({ start: currentMins, end: SLEEP_TIME });
+  }
 
-  blocks.push({
-    time: "10:15",
-    title: "Mathematics III Lecture",
-    type: "academic",
-    duration: "1h",
-    icon: <BookOpen className="w-3.5 h-3.5" />,
-    course: "Math III",
-  });
-
-  blocks.push({
-    time: "11:30",
-    title: "Break",
-    type: "break",
-    duration: "30 min",
-    icon: <Coffee className="w-3.5 h-3.5" />,
-  });
-
-  blocks.push({
-    time: "12:00",
-    title: "DBMS Lab",
-    type: "academic",
-    duration: "2h",
-    icon: <BookOpen className="w-3.5 h-3.5" />,
-    course: "DBMS",
-  });
-
+  // Inject AI Tasks
   const urgentTasks = tasks.filter((t) => {
-    if (!t.deadline) return false;
+    if (t.status === "completed") return false;
+    if (!t.deadline) return true; // Include non-deadline tasks too if we need filler
     const deadline = new Date(t.deadline);
-    const diff = (deadline.getTime() - date.getTime()) / (1000 * 60 * 60 * 24);
-    return diff >= 0 && diff <= 3 && t.status !== "completed";
+    const diff = (deadline.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diff >= 0 && diff <= 5; // Next 5 days
   });
 
-  if (urgentTasks.length > 0) {
-    blocks.push({
-      time: "14:30",
-      title: `Work on: ${urgentTasks[0].title}`,
-      type: "ai-suggested",
-      duration: `${Math.min(urgentTasks[0].estimatedEffortHours || 2, 2)}h`,
-      icon: <Sparkles className="w-3.5 h-3.5" />,
-      course: urgentTasks[0].subjectCourse,
-    });
-  }
-
-  if (urgentTasks.length > 1) {
-    blocks.push({
-      time: "17:00",
-      title: `Work on: ${urgentTasks[1].title}`,
-      type: "ai-suggested",
-      duration: `${Math.min(urgentTasks[1].estimatedEffortHours || 2, 2)}h`,
-      icon: <Sparkles className="w-3.5 h-3.5" />,
-      course: urgentTasks[1].subjectCourse,
-    });
-  }
-
-  const eveningActivity = demoActivities.find(
-    (a) =>
-      a.daysOfWeek.includes(dayOfWeek) &&
-      a.startTime >= "17:00" &&
-      a.startTime < "21:00"
-  );
-  if (eveningActivity) {
-    blocks.push({
-      time: eveningActivity.startTime,
-      title: eveningActivity.title,
-      type: "personal",
-      duration: `${eveningActivity.startTime} - ${eveningActivity.endTime}`,
-      icon: <Dumbbell className="w-3.5 h-3.5" />,
-    });
-  }
-
-  blocks.push({
-    time: "23:00",
-    title: "Sleep",
-    type: "personal",
-    duration: "7h",
-    icon: <Moon className="w-3.5 h-3.5" />,
+  // Sort tasks by priority and deadline
+  urgentTasks.sort((a, b) => {
+    if (a.priority === "high" && b.priority !== "high") return -1;
+    if (a.priority !== "high" && b.priority === "high") return 1;
+    return new Date(a.deadline || "2099").getTime() - new Date(b.deadline || "2099").getTime();
   });
 
-  return blocks.sort((a, b) => a.time.localeCompare(b.time));
+  // We limit to 2 AI blocks per day to avoid burnout
+  let aiBlocksInjected = 0;
+
+  for (const task of urgentTasks) {
+    if (aiBlocksInjected >= 2) break;
+
+    const requiredEffort = Math.min(task.estimatedEffortHours || 1.5, 2) * 60; // Max 2 hours per sitting
+
+    // Find a gap big enough
+    const gapIndex = freeGaps.findIndex((g) => g.end - g.start >= requiredEffort);
+
+    if (gapIndex !== -1) {
+      const gap = freeGaps[gapIndex];
+      
+      blocks.push({
+        id: `ai-${task.id}-${dateString}`,
+        time: minutesToTime(gap.start),
+        endTimeStr: minutesToTime(gap.start + requiredEffort),
+        title: `Study: ${task.title}`,
+        type: "ai-suggested",
+        duration: formatDuration(requiredEffort),
+        course: task.subjectCourse,
+      });
+
+      // Update gap
+      freeGaps[gapIndex].start += requiredEffort;
+      aiBlocksInjected++;
+    }
+  }
+
+  // Set icons
+  blocks.forEach((b) => {
+    if (b.type === "academic") b.icon = <BookOpen className="w-3.5 h-3.5" />;
+    else if (b.type === "personal") b.icon = <Dumbbell className="w-3.5 h-3.5" />;
+    else if (b.type === "ai-suggested") b.icon = <Sparkles className="w-3.5 h-3.5" />;
+    else if (b.type === "calendar") b.icon = <CalendarDays className="w-3.5 h-3.5" />;
+  });
+
+  // Re-sort with AI blocks included
+  return blocks.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
 }
 
 export default function SchedulePage() {
   const { data: session } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [baselineRoutine, setBaselineRoutine] = useState<BaselineEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [showSettings, setShowSettings] = useState(false);
+  const [newEvent, setNewEvent] = useState<Partial<BaselineEvent>>({ type: "academic", daysOfWeek: [] });
+
+  useEffect(() => {
+    // Load baseline from localStorage
+    const saved = localStorage.getItem("campus_life_os_baseline");
+    if (saved) {
+      try {
+        setBaselineRoutine(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse baseline", e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const userEmail = session?.user?.email;
     if (!userEmail) return;
 
-    const fetchTasks = async () => {
-      const { data, error } = await supabase
+    const fetchData = async () => {
+      // Fetch Supabase Tasks
+      const { data: tasksData, error: tasksError } = await supabase
         .from("tasks")
         .select("*")
         .eq("user_email", userEmail)
         .order("deadline", { ascending: true });
 
-      if (!error && data) {
-        const formattedTasks: Task[] = data.map((t) => ({
-          id: t.id,
-          title: t.title,
-          description: t.description,
-          subjectCourse: t.subject_course,
-          taskType: t.task_type,
-          deadline: t.deadline,
-          estimatedEffortHours: t.estimated_effort_hours,
-          priority: t.priority,
-          status: t.status,
-          source: t.source,
-          aiConfidence: t.ai_confidence,
-          createdAt: t.created_at || new Date().toISOString(),
-        }));
-        setTasks(formattedTasks);
+      if (!tasksError && tasksData) {
+        setTasks(
+          tasksData.map((t) => ({
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            subjectCourse: t.subject_course,
+            taskType: t.task_type,
+            deadline: t.deadline,
+            estimatedEffortHours: t.estimated_effort_hours,
+            priority: t.priority,
+            status: t.status,
+            source: t.source,
+            aiConfidence: t.ai_confidence,
+            createdAt: t.created_at || new Date().toISOString(),
+          }))
+        );
       }
+
+      // Fetch Calendar Events
+      try {
+        const res = await fetch("/api/calendar");
+        const calData = await res.json();
+        if (calData.events) {
+          setCalendarEvents(calData.events);
+        }
+      } catch (err) {
+        console.error("Failed to fetch calendar", err);
+      }
+
       setLoading(false);
     };
 
-    fetchTasks();
+    fetchData();
   }, [session]);
+
+  const saveBaseline = (newRoutine: BaselineEvent[]) => {
+    setBaselineRoutine(newRoutine);
+    localStorage.setItem("campus_life_os_baseline", JSON.stringify(newRoutine));
+  };
+
+  const handleAddBaselineEvent = () => {
+    if (!newEvent.title || !newEvent.startTime || !newEvent.endTime || newEvent.daysOfWeek?.length === 0) return;
+    
+    const event: BaselineEvent = {
+      id: Date.now().toString(),
+      title: newEvent.title!,
+      type: newEvent.type as any,
+      daysOfWeek: newEvent.daysOfWeek!,
+      startTime: newEvent.startTime!,
+      endTime: newEvent.endTime!,
+      course: newEvent.course,
+    };
+
+    saveBaseline([...baselineRoutine, event]);
+    setNewEvent({ type: "academic", daysOfWeek: [] });
+  };
+
+  const removeBaselineEvent = (id: string) => {
+    saveBaseline(baselineRoutine.filter(e => e.id !== id));
+  };
+
+  const toggleDay = (dayIndex: number) => {
+    const current = newEvent.daysOfWeek || [];
+    if (current.includes(dayIndex)) {
+      setNewEvent({ ...newEvent, daysOfWeek: current.filter(d => d !== dayIndex) });
+    } else {
+      setNewEvent({ ...newEvent, daysOfWeek: [...current, dayIndex] });
+    }
+  };
 
   const today = new Date();
 
@@ -195,25 +322,134 @@ export default function SchedulePage() {
 
   return (
     <div className="space-y-5">
-      <div className="animate-fade-in-up">
-        <h1 className="text-xl font-semibold text-[var(--text-primary)]">
-          Smart Schedule
-        </h1>
-        <p className="text-xs text-[var(--text-muted)] mt-0.5">
-          AI-generated daily plan balancing academics with personal life
-        </p>
+      <div className="flex items-center justify-between animate-fade-in-up">
+        <div>
+          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+            Smart Schedule
+          </h1>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">
+            Merges your Routine, Google Calendar, and AI Study Blocks
+          </p>
+        </div>
+        <button onClick={() => setShowSettings(!showSettings)} className="btn-secondary">
+          <Settings className="w-3.5 h-3.5" />
+          Edit Routine
+        </button>
       </div>
+
+      {showSettings && (
+        <div className="glass-card p-5 animate-fade-in mb-6 border border-[var(--accent-border)]">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-medium text-[var(--text-primary)]">Baseline Weekly Routine</h2>
+            <button onClick={() => setShowSettings(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] text-[var(--text-muted)] mb-1">Title</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. Data Structures Lecture"
+                  value={newEvent.title || ""}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-[var(--text-muted)] mb-1">Type</label>
+                <select
+                  className="input-field"
+                  value={newEvent.type}
+                  onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value as any })}
+                >
+                  <option value="academic">Academic Class</option>
+                  <option value="personal">Personal Activity</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="block text-[11px] text-[var(--text-muted)] mb-1">Start Time</label>
+                  <input
+                    type="time"
+                    className="input-field"
+                    value={newEvent.startTime || ""}
+                    onChange={(e) => setNewEvent({ ...newEvent, startTime: e.target.value })}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-[11px] text-[var(--text-muted)] mb-1">End Time</label>
+                  <input
+                    type="time"
+                    className="input-field"
+                    value={newEvent.endTime || ""}
+                    onChange={(e) => setNewEvent({ ...newEvent, endTime: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                 <label className="block text-[11px] text-[var(--text-muted)] mb-1">Days of Week</label>
+                 <div className="flex gap-1.5 mt-1.5">
+                   {dayNames.map((day, idx) => (
+                     <button
+                       key={day}
+                       onClick={() => toggleDay(idx)}
+                       className={`w-8 h-8 rounded-full text-[10px] flex items-center justify-center transition-colors ${
+                         newEvent.daysOfWeek?.includes(idx) 
+                          ? "bg-[var(--accent)] text-white font-bold" 
+                          : "bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                       }`}
+                     >
+                       {day[0]}
+                     </button>
+                   ))}
+                 </div>
+              </div>
+            </div>
+            <button onClick={handleAddBaselineEvent} className="btn-primary w-full justify-center">
+              <Plus className="w-4 h-4" /> Add to Routine
+            </button>
+
+            {baselineRoutine.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-xs font-medium text-[var(--text-secondary)] mb-3">Saved Weekly Routine</h3>
+                <div className="space-y-2">
+                  {baselineRoutine.map((evt) => (
+                    <div key={evt.id} className="flex items-center justify-between p-3 rounded-md bg-[var(--bg-surface)] border border-[var(--border)]">
+                      <div>
+                        <div className="text-[13px] font-medium text-[var(--text-primary)]">{evt.title}</div>
+                        <div className="text-[11px] text-[var(--text-muted)] flex items-center gap-2 mt-0.5">
+                           <span>{evt.startTime} - {evt.endTime}</span>
+                           <span>•</span>
+                           <span className="text-[var(--accent)]">
+                             {evt.daysOfWeek.map(d => dayNames[d]).join(", ")}
+                           </span>
+                        </div>
+                      </div>
+                      <button onClick={() => removeBaselineEvent(evt.id)} className="p-1.5 text-[var(--color-danger)] opacity-70 hover:opacity-100 hover:bg-[var(--color-danger-dim)] rounded-md transition-colors">
+                         <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="text-xs text-[var(--text-muted)] px-3 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] inline-flex items-center gap-1.5 animate-fade-in">
         <Sparkles className="w-3 h-3 text-[var(--accent)]" />
-        Blocks marked with AI are suggested based on upcoming deadlines
+        Blocks marked with AI are dynamically inserted into your free time based on upcoming deadlines
       </div>
 
       <div className="space-y-4">
         {[0, 1, 2].map((offset) => {
           const date = new Date(today);
           date.setDate(date.getDate() + offset);
-          const blocks = generateScheduleForDay(offset, tasks);
+          const blocks = generateSmartSchedule(date, baselineRoutine, calendarEvents, tasks);
           const label =
             offset === 0
               ? "Today"
@@ -229,7 +465,7 @@ export default function SchedulePage() {
                   {label}
                 </h2>
                 <span className="text-[11px] text-[var(--text-muted)]">
-                  {blocks.length} blocks
+                  {blocks.length} events
                 </span>
               </div>
 
@@ -237,59 +473,65 @@ export default function SchedulePage() {
                 <div className="absolute left-[5px] top-1 bottom-1 w-px bg-[var(--border)]" />
 
                 <div className="space-y-2.5">
-                  {blocks.map((block, i) => (
-                    <div key={i} className="flex items-start gap-3 relative">
-                      <div
-                        className="w-3 h-3 rounded-full border-[1.5px] bg-[var(--bg-primary)] flex-shrink-0 mt-1 z-10"
-                        style={{
-                          borderColor:
-                            block.type === "ai-suggested"
-                              ? "var(--accent)"
-                              : block.type === "academic"
-                              ? "var(--color-info)"
-                              : block.type === "break"
-                              ? "var(--text-muted)"
-                              : "var(--color-success)",
-                        }}
-                      />
+                  {blocks.length === 0 ? (
+                    <div className="pl-6 text-xs text-[var(--text-muted)] py-2">
+                       No events or AI suggestions for this day. Enjoy your free time!
+                    </div>
+                  ) : (
+                    blocks.map((block, i) => (
+                      <div key={i} className="flex items-start gap-3 relative">
+                        <div
+                          className="w-3 h-3 rounded-full border-[1.5px] bg-[var(--bg-primary)] flex-shrink-0 mt-1 z-10"
+                          style={{
+                            borderColor:
+                              block.type === "ai-suggested"
+                                ? "var(--accent)"
+                                : block.type === "calendar"
+                                ? "var(--color-warning)"
+                                : block.type === "academic"
+                                ? "var(--color-info)"
+                                : "var(--color-success)",
+                          }}
+                        />
 
-                      <div
-                        className={`flex-1 p-2.5 rounded-md border transition-colors ${
-                          block.type === "ai-suggested"
-                            ? "bg-[var(--accent-dim)] border-[var(--accent-border)]"
-                            : block.type === "break"
-                            ? "bg-[var(--bg-surface)] border-[var(--border)] opacity-50"
-                            : "bg-[var(--bg-surface)] border-[var(--border)]"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[var(--text-muted)]">
-                              {block.icon}
-                            </span>
-                            <span className="text-[13px] font-medium text-[var(--text-primary)]">
-                              {block.title}
-                            </span>
-                            {block.type === "ai-suggested" && (
-                              <span className="text-[9px] bg-[var(--accent-dim)] text-[var(--accent)] px-1.5 py-0.5 rounded font-medium">
-                                AI
+                        <div
+                          className={`flex-1 p-2.5 rounded-md border transition-colors ${
+                            block.type === "ai-suggested"
+                              ? "bg-[var(--accent-dim)] border-[var(--accent-border)]"
+                              : block.type === "calendar"
+                              ? "bg-[var(--bg-surface)] border-[var(--border)] border-l-[3px] border-l-[var(--color-warning)]"
+                              : "bg-[var(--bg-surface)] border-[var(--border)]"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className={block.type === "calendar" ? "text-[var(--color-warning)]" : "text-[var(--text-muted)]"}>
+                                {block.icon}
                               </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {block.course && (
-                              <span className="text-[10px] text-[var(--text-muted)]">
-                                {block.course}
+                              <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                                {block.title}
                               </span>
-                            )}
-                            <span className="text-[11px] text-[var(--text-muted)]">
-                              {block.time}
-                            </span>
+                              {block.type === "ai-suggested" && (
+                                <span className="text-[9px] bg-[var(--accent-dim)] text-[var(--accent)] px-1.5 py-0.5 rounded font-medium">
+                                  AI
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {block.course && (
+                                <span className="text-[10px] text-[var(--text-muted)]">
+                                  {block.course}
+                                </span>
+                              )}
+                              <span className="text-[11px] text-[var(--text-muted)] font-medium">
+                                {block.time} - {block.endTimeStr}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
