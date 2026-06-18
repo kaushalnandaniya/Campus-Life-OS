@@ -32,10 +32,49 @@ export async function GET(req: NextRequest) {
     for (const account of accounts) {
       let accessToken = account.access_token;
       
-      // We don't rotate here if expired, because the Sync endpoints already handle rotation
-      // But just to be safe, if it is expired, we skip it for now.
+      // If token is expired, refresh it first
       if (account.expires_at < Date.now() + 60000) {
-         continue; // Wait for Sync process to rotate it
+        if (!account.refresh_token) {
+          console.warn(`[Calendar API] Skipping ${account.account_email} due to missing refresh token.`);
+          continue;
+        }
+
+        try {
+          const tokenUrl = "https://oauth2.googleapis.com/token";
+          const res = await fetch(tokenUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: process.env.GOOGLE_CLIENT_ID || "",
+              client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+              grant_type: "refresh_token",
+              refresh_token: account.refresh_token,
+            }),
+          });
+
+          const refreshedTokens = await res.json();
+          if (res.ok && refreshedTokens.access_token) {
+            accessToken = refreshedTokens.access_token;
+            const newExpiresAt = Date.now() + refreshedTokens.expires_in * 1000;
+            const newRefreshToken = refreshedTokens.refresh_token || account.refresh_token;
+
+            // Save the new token back to the vault
+            await supabase
+              .from("connected_accounts")
+              .update({
+                access_token: accessToken,
+                refresh_token: newRefreshToken,
+                expires_at: newExpiresAt,
+              })
+              .eq("id", account.id);
+          } else {
+             console.error(`[Calendar API] Failed to refresh token for ${account.account_email}`);
+             continue; 
+          }
+        } catch (err) {
+           console.error(`[Calendar API] Error during refresh for ${account.account_email}:`, err);
+           continue;
+        }
       }
 
       const events = await fetchCalendarEvents(accessToken);
