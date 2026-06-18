@@ -135,7 +135,7 @@ function generateSmartScheduleRange(
     // 2. Google Calendar
     const todaysCalendarEvents = calendarEvents.filter((e) => {
       const d = new Date(e.startTime);
-      return d.toDateString() === dateString;
+      return d.toDateString() === dateStr;
     });
 
     todaysCalendarEvents.forEach((e) => {
