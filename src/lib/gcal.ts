@@ -64,9 +64,9 @@ export async function fetchCalendarEvents(accessToken: string) {
   try {
     const timeMin = new Date().toISOString();
     
-    // Fetch events for the next 14 days
+    // Fetch events for the next 60 days
     const maxDate = new Date();
-    maxDate.setDate(maxDate.getDate() + 14);
+    maxDate.setDate(maxDate.getDate() + 60);
     const timeMax = maxDate.toISOString();
 
     const response = await fetch(

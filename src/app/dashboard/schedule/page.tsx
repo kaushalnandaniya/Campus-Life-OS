@@ -114,48 +114,59 @@ function generateSmartScheduleRange(
     const dayOfWeek = currentDate.getDay();
     const blocks: ScheduleBlock[] = [];
 
-    // 1. Baseline Routine
-    const todaysBaseline = baselineRoutine.filter((e) => e.daysOfWeek.includes(dayOfWeek));
-    todaysBaseline.forEach((e) => {
-      const startMins = timeToMinutes(e.startTime);
-      const endMins = timeToMinutes(e.endTime);
-      blocks.push({
-        id: e.id,
-        time: e.startTime,
-        endTimeStr: e.endTime,
-        startMins,
-        endMins,
-        title: e.title,
-        type: e.type,
-        duration: formatDuration(endMins - startMins),
-        course: e.course,
-      });
-    });
-
-    // 2. Google Calendar
+    // 1. Google Calendar (Highest Priority)
     const todaysCalendarEvents = calendarEvents.filter((e) => {
       const d = new Date(e.startTime);
       return d.toDateString() === dateStr;
     });
 
-    todaysCalendarEvents.forEach((e) => {
+    const parsedCalendarEvents = todaysCalendarEvents.map((e) => {
       const dStart = new Date(e.startTime);
       const dEnd = new Date(e.endTime);
-      const startMins = dStart.getHours() * 60 + dStart.getMinutes();
-      const endMins = dEnd.getHours() * 60 + dEnd.getMinutes();
-      
-      if (endMins - startMins <= 0) return; // skip all day
+      return {
+        startMins: dStart.getHours() * 60 + dStart.getMinutes(),
+        endMins: dEnd.getHours() * 60 + dEnd.getMinutes(),
+        event: e,
+      };
+    }).filter(e => e.endMins - e.startMins > 0);
 
+    parsedCalendarEvents.forEach(pe => {
       blocks.push({
-        id: e.id,
-        time: minutesToTime(startMins),
-        endTimeStr: minutesToTime(endMins),
-        startMins,
-        endMins,
-        title: e.title,
+        id: pe.event.id,
+        time: minutesToTime(pe.startMins),
+        endTimeStr: minutesToTime(pe.endMins),
+        startMins: pe.startMins,
+        endMins: pe.endMins,
+        title: pe.event.title,
         type: "calendar",
-        duration: formatDuration(endMins - startMins),
+        duration: formatDuration(pe.endMins - pe.startMins),
       });
+    });
+
+    // 2. Baseline Routine (Second Priority)
+    const todaysBaseline = baselineRoutine.filter((e) => e.daysOfWeek.includes(dayOfWeek));
+    todaysBaseline.forEach((e) => {
+      const startMins = timeToMinutes(e.startTime);
+      const endMins = timeToMinutes(e.endTime);
+      
+      // Only schedule routine if it DOES NOT overlap with any Google Calendar events
+      const overlapsWithGCal = parsedCalendarEvents.some(ce => 
+        (startMins < ce.endMins && endMins > ce.startMins)
+      );
+
+      if (!overlapsWithGCal) {
+        blocks.push({
+          id: e.id,
+          time: e.startTime,
+          endTimeStr: e.endTime,
+          startMins,
+          endMins,
+          title: e.title,
+          type: e.type,
+          duration: formatDuration(endMins - startMins),
+          course: e.course,
+        });
+      }
     });
 
     // 3. Find Free Gaps

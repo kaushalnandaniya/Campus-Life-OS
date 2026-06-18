@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       // Fetch all events
       const timeMin = new Date().toISOString();
       const maxDate = new Date();
-      maxDate.setDate(maxDate.getDate() + 14); // same range as fetchCalendarEvents
+      maxDate.setDate(maxDate.getDate() + 60); // same range as fetchCalendarEvents
       const timeMax = maxDate.toISOString();
 
       const response = await fetch(
