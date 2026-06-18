@@ -240,6 +240,55 @@ export default function SchedulePage() {
   
   const [viewType, setViewType] = useState<"daily" | "weekly" | "monthly">("weekly");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [pushingToGCal, setPushingToGCal] = useState(false);
+
+  const handlePushToGCal = async (scheduleMap: Record<string, ScheduleBlock[]>) => {
+    if (pushingToGCal) return;
+    setPushingToGCal(true);
+    
+    try {
+      const payloadBlocks: any[] = [];
+      Object.entries(scheduleMap).forEach(([dateStr, blocks]) => {
+        blocks.forEach(b => {
+          if (b.type !== "calendar") { // Don't push events already from GCal
+             const baseDate = new Date(dateStr);
+             const startHour = Math.floor(b.startMins / 60);
+             const startMin = b.startMins % 60;
+             const endHour = Math.floor(b.endMins / 60);
+             const endMin = b.endMins % 60;
+             
+             const startTime = new Date(baseDate);
+             startTime.setHours(startHour, startMin, 0, 0);
+             
+             const endTime = new Date(baseDate);
+             endTime.setHours(endHour, endMin, 0, 0);
+             
+             payloadBlocks.push({
+               ...b,
+               startTime: startTime.toISOString(),
+               endTime: endTime.toISOString()
+             });
+          }
+        });
+      });
+
+      const res = await fetch("/api/calendar/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blocks: payloadBlocks })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Successfully synced ${data.pushedCount} smart blocks to your Google Calendar!`);
+      } else {
+        alert(`Failed to sync: ${data.error}`);
+      }
+    } catch (e) {
+      alert("Error syncing to Google Calendar");
+    } finally {
+      setPushingToGCal(false);
+    }
+  };
 
   useEffect(() => {
     const userEmail = session?.user?.email;
@@ -500,6 +549,15 @@ export default function SchedulePage() {
             </span>
             <button onClick={() => changeDate(1)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] rounded transition-colors"><ChevronRight className="w-4 h-4" /></button>
           </div>
+
+          <button 
+            onClick={() => handlePushToGCal(scheduleMap)}
+            disabled={pushingToGCal}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-md bg-[rgba(96,165,250,0.1)] text-[var(--color-info)] border border-[rgba(96,165,250,0.2)] hover:bg-[rgba(96,165,250,0.2)] transition-colors"
+          >
+            {pushingToGCal ? <span className="animate-spin text-lg leading-none mt-[-2px]">↻</span> : <Sparkles className="w-3.5 h-3.5" />}
+            {pushingToGCal ? "Syncing..." : "Sync to GCal"}
+          </button>
         </div>
       </div>
 

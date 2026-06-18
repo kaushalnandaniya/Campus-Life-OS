@@ -41,51 +41,41 @@ async function refreshAccessToken(token: any) {
   }
 }
 
-const handler = NextAuth({
+export const authOptions: any = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
       authorization: {
         params: {
-          // Request Gmail read-only access and Calendar access
-          scope: [
-            "openid",
-            "email",
-            "profile",
-            "https://www.googleapis.com/auth/gmail.readonly",
-            "https://www.googleapis.com/auth/calendar",
-          ].join(" "),
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
+          scope: "openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar",
         },
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
-      // Import supabase dynamically to avoid top-level issues in NextAuth
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-      // Initial sign in
-      if (account) {
+    async jwt({ token, account, user }) {
+      if (account && user) {
+        // Initial sign in
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
-        token.accessTokenExpires = account.expires_at
-          ? account.expires_at * 1000
-          : Date.now() + 3600 * 1000;
+        token.accessTokenExpires = account.expires_at ? account.expires_at * 1000 : 0;
+        
+        // Save to Supabase Token Vault
+        if (user.email && account.access_token) {
+          const { createClient } = await import('@supabase/supabase-js');
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+          const supabase = createClient(supabaseUrl, supabaseAnonKey);
           
-        // Upsert into Supabase Vault
-        if (token.email) {
           await supabase.from('connected_accounts').upsert({
-            user_email: token.email,
-            account_email: token.email, // Primary account has same account_email as user_email
-            access_token: token.accessToken,
-            refresh_token: token.refreshToken,
+            user_email: user.email.toLowerCase(),
+            account_email: user.email.toLowerCase(),
+            access_token: account.access_token,
+            refresh_token: account.refresh_token,
             expires_at: token.accessTokenExpires
           }, { onConflict: 'user_email, account_email' });
         }
@@ -103,6 +93,11 @@ const handler = NextAuth({
       
       // Update the vault with the new access token
       if (refreshedToken.email && refreshedToken.accessToken) {
+         const { createClient } = await import('@supabase/supabase-js');
+         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+         const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+         const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
          await supabase.from('connected_accounts').update({
            access_token: refreshedToken.accessToken,
            refresh_token: refreshedToken.refreshToken,
@@ -112,7 +107,7 @@ const handler = NextAuth({
       
       return refreshedToken;
     },
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       // Pass access token and error to client session
       (session as any).accessToken = token.accessToken;
       (session as any).error = token.error;
@@ -123,6 +118,8 @@ const handler = NextAuth({
     signIn: "/",
   },
   secret: process.env.NEXTAUTH_SECRET,
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
