@@ -57,7 +57,7 @@ export const authOptions: any = {
     }),
   ],
   callbacks: {
-    async jwt({ token, account, user }) {
+    async jwt({ token, account, user }: any) {
       if (account && user) {
         // Initial sign in
         token.accessToken = account.access_token;
