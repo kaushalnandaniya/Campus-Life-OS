@@ -16,85 +16,89 @@ export async function POST(req: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Get primary account token from vault
-    const { data: account, error } = await supabase
+    // Get all connected accounts from vault
+    const { data: accounts, error } = await supabase
       .from("connected_accounts")
       .select("*")
-      .eq("user_email", primaryEmail)
-      .eq("account_email", primaryEmail)
-      .single();
+      .eq("user_email", primaryEmail);
 
-    if (error || !account) {
-      throw new Error("Failed to fetch primary account token");
+    if (error || !accounts || accounts.length === 0) {
+      throw new Error("Failed to fetch account tokens");
     }
 
-    let accessToken = account.access_token;
+    let totalDeletedCount = 0;
 
-    // Refresh if needed
-    if (account.expires_at < Date.now() + 60000) {
-      const tokenUrl = "https://oauth2.googleapis.com/token";
-      const res = await fetch(tokenUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: process.env.GOOGLE_CLIENT_ID || "",
-          client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
-          grant_type: "refresh_token",
-          refresh_token: account.refresh_token,
-        }),
-      });
-      const refreshedTokens = await res.json();
-      if (res.ok && refreshedTokens.access_token) {
-        accessToken = refreshedTokens.access_token;
-        const newExpiresAt = Date.now() + refreshedTokens.expires_in * 1000;
-        await supabase.from("connected_accounts").update({
-          access_token: accessToken,
-          expires_at: newExpiresAt,
-        }).eq("id", account.id);
+    for (const account of accounts) {
+      let accessToken = account.access_token;
+
+      // Refresh if needed
+      if (account.expires_at < Date.now() + 60000) {
+        if (!account.refresh_token) continue;
+        const tokenUrl = "https://oauth2.googleapis.com/token";
+        const res = await fetch(tokenUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: process.env.GOOGLE_CLIENT_ID || "",
+            client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+            grant_type: "refresh_token",
+            refresh_token: account.refresh_token,
+          }),
+        });
+        const refreshedTokens = await res.json();
+        if (res.ok && refreshedTokens.access_token) {
+          accessToken = refreshedTokens.access_token;
+          const newExpiresAt = Date.now() + refreshedTokens.expires_in * 1000;
+          await supabase.from("connected_accounts").update({
+            access_token: accessToken,
+            expires_at: newExpiresAt,
+          }).eq("id", account.id);
+        }
       }
-    }
 
-    // Fetch all events
-    const timeMin = new Date().toISOString();
-    const maxDate = new Date();
-    maxDate.setDate(maxDate.getDate() + 14); // same range as fetchCalendarEvents
-    const timeMax = maxDate.toISOString();
+      // Fetch all events
+      const timeMin = new Date().toISOString();
+      const maxDate = new Date();
+      maxDate.setDate(maxDate.getDate() + 14); // same range as fetchCalendarEvents
+      const timeMax = maxDate.toISOString();
 
-    const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      return NextResponse.json({ error: "Failed to fetch Google Calendar events" }, { status: 500 });
-    }
-
-    const data = await response.json();
-    const events = data.items || [];
-    
-    let deletedCount = 0;
-
-    // Delete events created by Campus OS
-    for (const event of events) {
-      if (event.summary && event.summary.startsWith("[Campus OS]")) {
-        const deleteResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.id}`, {
-          method: "DELETE",
+      const response = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true`,
+        {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-        });
-        
-        if (deleteResponse.ok) {
-          deletedCount++;
+        }
+      );
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const data = await response.json();
+      const events = data.items || [];
+      
+      let deletedCount = 0;
+
+      // Delete events created by Campus OS
+      for (const event of events) {
+        if (event.summary && event.summary.startsWith("[Campus OS]")) {
+          const deleteResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.id}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+          
+          if (deleteResponse.ok) {
+            deletedCount++;
+          }
         }
       }
+      totalDeletedCount += deletedCount;
     }
 
-    return NextResponse.json({ success: true, deletedCount });
+    return NextResponse.json({ success: true, deletedCount: totalDeletedCount });
   } catch (error: any) {
     console.error("[Wipe API] Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
