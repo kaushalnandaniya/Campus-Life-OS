@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     // Get NextAuth session to know the primary user
     const { getServerSession } = await import("next-auth");
     const { authOptions } = await import("@/app/api/auth/[...nextauth]/route");
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions) as any;
     
     if (session?.user?.email) {
       const primaryEmail = session.user.email.toLowerCase();
