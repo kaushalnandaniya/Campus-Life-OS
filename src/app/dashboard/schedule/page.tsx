@@ -9,14 +9,7 @@ import {
   Sparkles,
   BookOpen,
   Dumbbell,
-  Coffee,
-  Moon,
   Loader2,
-  Clock,
-  Plus,
-  X,
-  Settings,
-  Trash2,
 } from "lucide-react";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -211,21 +204,6 @@ export default function SchedulePage() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [baselineRoutine, setBaselineRoutine] = useState<BaselineEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const [showSettings, setShowSettings] = useState(false);
-  const [newEvent, setNewEvent] = useState<Partial<BaselineEvent>>({ type: "academic", daysOfWeek: [] });
-
-  useEffect(() => {
-    // Load baseline from localStorage
-    const saved = localStorage.getItem("campus_life_os_baseline");
-    if (saved) {
-      try {
-        setBaselineRoutine(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse baseline", e);
-      }
-    }
-  }, []);
 
   useEffect(() => {
     const userEmail = session?.user?.email;
@@ -258,6 +236,25 @@ export default function SchedulePage() {
         );
       }
 
+      // Fetch Supabase Activities (Baseline Routine)
+      const { data: activitiesData, error: activitiesError } = await supabase
+        .from("activities")
+        .select("*")
+        .eq("user_email", userEmail);
+
+      if (!activitiesError && activitiesData) {
+        setBaselineRoutine(
+          activitiesData.map((a: any) => ({
+            id: a.id,
+            title: a.title,
+            type: "personal", // We'll treat all activities as personal for color coding
+            daysOfWeek: a.days_of_week || [],
+            startTime: a.start_time,
+            endTime: a.end_time,
+          }))
+        );
+      }
+
       // Fetch Calendar Events
       try {
         const res = await fetch("/api/calendar");
@@ -274,41 +271,6 @@ export default function SchedulePage() {
 
     fetchData();
   }, [session]);
-
-  const saveBaseline = (newRoutine: BaselineEvent[]) => {
-    setBaselineRoutine(newRoutine);
-    localStorage.setItem("campus_life_os_baseline", JSON.stringify(newRoutine));
-  };
-
-  const handleAddBaselineEvent = () => {
-    if (!newEvent.title || !newEvent.startTime || !newEvent.endTime || newEvent.daysOfWeek?.length === 0) return;
-    
-    const event: BaselineEvent = {
-      id: Date.now().toString(),
-      title: newEvent.title!,
-      type: newEvent.type as any,
-      daysOfWeek: newEvent.daysOfWeek!,
-      startTime: newEvent.startTime!,
-      endTime: newEvent.endTime!,
-      course: newEvent.course,
-    };
-
-    saveBaseline([...baselineRoutine, event]);
-    setNewEvent({ type: "academic", daysOfWeek: [] });
-  };
-
-  const removeBaselineEvent = (id: string) => {
-    saveBaseline(baselineRoutine.filter(e => e.id !== id));
-  };
-
-  const toggleDay = (dayIndex: number) => {
-    const current = newEvent.daysOfWeek || [];
-    if (current.includes(dayIndex)) {
-      setNewEvent({ ...newEvent, daysOfWeek: current.filter(d => d !== dayIndex) });
-    } else {
-      setNewEvent({ ...newEvent, daysOfWeek: [...current, dayIndex] });
-    }
-  };
 
   const today = new Date();
 
@@ -331,114 +293,7 @@ export default function SchedulePage() {
             Merges your Routine, Google Calendar, and AI Study Blocks
           </p>
         </div>
-        <button onClick={() => setShowSettings(!showSettings)} className="btn-secondary">
-          <Settings className="w-3.5 h-3.5" />
-          Edit Routine
-        </button>
       </div>
-
-      {showSettings && (
-        <div className="glass-card p-5 animate-fade-in mb-6 border border-[var(--accent-border)]">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-medium text-[var(--text-primary)]">Baseline Weekly Routine</h2>
-            <button onClick={() => setShowSettings(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] text-[var(--text-muted)] mb-1">Title</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. Data Structures Lecture"
-                  value={newEvent.title || ""}
-                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] text-[var(--text-muted)] mb-1">Type</label>
-                <select
-                  className="input-field"
-                  value={newEvent.type}
-                  onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value as any })}
-                >
-                  <option value="academic">Academic Class</option>
-                  <option value="personal">Personal Activity</option>
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="block text-[11px] text-[var(--text-muted)] mb-1">Start Time</label>
-                  <input
-                    type="time"
-                    className="input-field"
-                    value={newEvent.startTime || ""}
-                    onChange={(e) => setNewEvent({ ...newEvent, startTime: e.target.value })}
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-[11px] text-[var(--text-muted)] mb-1">End Time</label>
-                  <input
-                    type="time"
-                    className="input-field"
-                    value={newEvent.endTime || ""}
-                    onChange={(e) => setNewEvent({ ...newEvent, endTime: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div>
-                 <label className="block text-[11px] text-[var(--text-muted)] mb-1">Days of Week</label>
-                 <div className="flex gap-1.5 mt-1.5">
-                   {dayNames.map((day, idx) => (
-                     <button
-                       key={day}
-                       onClick={() => toggleDay(idx)}
-                       className={`w-8 h-8 rounded-full text-[10px] flex items-center justify-center transition-colors ${
-                         newEvent.daysOfWeek?.includes(idx) 
-                          ? "bg-[var(--accent)] text-white font-bold" 
-                          : "bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                       }`}
-                     >
-                       {day[0]}
-                     </button>
-                   ))}
-                 </div>
-              </div>
-            </div>
-            <button onClick={handleAddBaselineEvent} className="btn-primary w-full justify-center">
-              <Plus className="w-4 h-4" /> Add to Routine
-            </button>
-
-            {baselineRoutine.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-xs font-medium text-[var(--text-secondary)] mb-3">Saved Weekly Routine</h3>
-                <div className="space-y-2">
-                  {baselineRoutine.map((evt) => (
-                    <div key={evt.id} className="flex items-center justify-between p-3 rounded-md bg-[var(--bg-surface)] border border-[var(--border)]">
-                      <div>
-                        <div className="text-[13px] font-medium text-[var(--text-primary)]">{evt.title}</div>
-                        <div className="text-[11px] text-[var(--text-muted)] flex items-center gap-2 mt-0.5">
-                           <span>{evt.startTime} - {evt.endTime}</span>
-                           <span>•</span>
-                           <span className="text-[var(--accent)]">
-                             {evt.daysOfWeek.map(d => dayNames[d]).join(", ")}
-                           </span>
-                        </div>
-                      </div>
-                      <button onClick={() => removeBaselineEvent(evt.id)} className="p-1.5 text-[var(--color-danger)] opacity-70 hover:opacity-100 hover:bg-[var(--color-danger-dim)] rounded-md transition-colors">
-                         <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       <div className="text-xs text-[var(--text-muted)] px-3 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] inline-flex items-center gap-1.5 animate-fade-in">
         <Sparkles className="w-3 h-3 text-[var(--accent)]" />
