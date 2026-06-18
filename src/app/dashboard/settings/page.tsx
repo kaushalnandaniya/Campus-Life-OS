@@ -70,7 +70,7 @@ function saveProfile(profile: UserProfile) {
 
 export default function SettingsPage() {
   const { data: session } = useSession();
-  const [profile, setProfile] = useState<UserProfile>({ displayName: "", phone: "", personalEmails: [] });
+  const [profile, setProfile] = useState<UserProfile>({ displayName: "", phone: "", personalEmails: [], preferences: defaultPreferences });
   const [newEmail, setNewEmail] = useState("");
   const [saved, setSaved] = useState(false);
 
