@@ -10,21 +10,43 @@ interface PersonalEmailAccount {
   expiresAt: number;
 }
 
+interface UserPreferences {
+  autoSync: "15m" | "30m" | "1h" | "manual";
+  notifications: {
+    deadlineReminders: boolean;
+    burnoutWarnings: boolean;
+    conflictAlerts: boolean;
+    weeklySummary: boolean;
+  };
+}
+
 interface UserProfile {
   displayName: string;
   phone: string;
-  personalEmails: PersonalEmailAccount[]; // Now stores OAuth data
+  personalEmails: PersonalEmailAccount[];
+  preferences: UserPreferences;
 }
 
 const PROFILE_KEY = "campus-life-os-profile";
 
+const defaultPreferences: UserPreferences = {
+  autoSync: "1h",
+  notifications: {
+    deadlineReminders: true,
+    burnoutWarnings: true,
+    conflictAlerts: true,
+    weeklySummary: false,
+  }
+};
+
 function loadProfile(): UserProfile {
-  if (typeof window === "undefined") return { displayName: "", phone: "", personalEmails: [] };
+  const baseProfile: UserProfile = { displayName: "", phone: "", personalEmails: [], preferences: defaultPreferences };
+  if (typeof window === "undefined") return baseProfile;
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
     if (raw) {
       const data = JSON.parse(raw);
-      // Migrate old string arrays to object arrays (with empty tokens so they can be re-auth'd)
+      // Migrate old string arrays to object arrays
       if (data.personalEmails && data.personalEmails.length > 0 && typeof data.personalEmails[0] === "string") {
         data.personalEmails = data.personalEmails.map((e: string) => ({
           email: e,
@@ -32,10 +54,14 @@ function loadProfile(): UserProfile {
           expiresAt: 0
         }));
       }
+      // Ensure preferences exist
+      if (!data.preferences) {
+        data.preferences = defaultPreferences;
+      }
       return data;
     }
   } catch {}
-  return { displayName: "", phone: "", personalEmails: [] };
+  return baseProfile;
 }
 
 function saveProfile(profile: UserProfile) {
@@ -299,11 +325,22 @@ export default function SettingsPage() {
               <p className="text-[13px] text-[var(--text-primary)]">Auto-sync</p>
               <p className="text-[11px] text-[var(--text-muted)]">How often to check for new emails</p>
             </div>
-            <select className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-md px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-border)]">
-              <option>Every 15 minutes</option>
-              <option>Every 30 minutes</option>
-              <option>Every hour</option>
-              <option>Manual only</option>
+            <select
+              value={profile.preferences?.autoSync || "1h"}
+              onChange={(e) => {
+                const updated = {
+                  ...profile,
+                  preferences: { ...profile.preferences, autoSync: e.target.value as any }
+                };
+                setProfile(updated);
+                saveProfile(updated);
+              }}
+              className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-md px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-border)]"
+            >
+              <option value="15m">Every 15 minutes</option>
+              <option value="30m">Every 30 minutes</option>
+              <option value="1h">Every hour</option>
+              <option value="manual">Manual only</option>
             </select>
           </div>
           
@@ -361,31 +398,48 @@ export default function SettingsPage() {
         </div>
         <div className="space-y-2">
           {[
-            { label: "Deadline reminders", desc: "24h and 2h before", on: true },
-            { label: "Burnout warnings", desc: "When risk exceeds 60", on: true },
-            { label: "Conflict alerts", desc: "When activities overlap", on: true },
-            { label: "Weekly summary", desc: "Every Sunday at 8 PM", on: false },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center justify-between py-1.5">
-              <div>
-                <p className="text-[13px] text-[var(--text-primary)]">{item.label}</p>
-                <p className="text-[11px] text-[var(--text-muted)]">{item.desc}</p>
-              </div>
-              <div
-                className={`w-9 h-[18px] rounded-full relative cursor-pointer transition-colors ${
-                  item.on
-                    ? "bg-[var(--accent)]"
-                    : "bg-[var(--bg-surface)] border border-[var(--border)]"
-                }`}
-              >
+            { key: "deadlineReminders", label: "Deadline reminders", desc: "24h and 2h before" },
+            { key: "burnoutWarnings", label: "Burnout warnings", desc: "When risk exceeds 60" },
+            { key: "conflictAlerts", label: "Conflict alerts", desc: "When activities overlap" },
+            { key: "weeklySummary", label: "Weekly summary", desc: "Every Sunday at 8 PM" },
+          ].map((item) => {
+            const isOn = profile.preferences?.notifications?.[item.key as keyof typeof profile.preferences.notifications] ?? true;
+            return (
+              <div key={item.label} className="flex items-center justify-between py-1.5">
+                <div>
+                  <p className="text-[13px] text-[var(--text-primary)]">{item.label}</p>
+                  <p className="text-[11px] text-[var(--text-muted)]">{item.desc}</p>
+                </div>
                 <div
-                  className={`w-3.5 h-3.5 rounded-full bg-white absolute top-[1px] transition-all ${
-                    item.on ? "left-[19px]" : "left-[1px]"
+                  onClick={() => {
+                    const updated = {
+                      ...profile,
+                      preferences: {
+                        ...profile.preferences,
+                        notifications: {
+                          ...profile.preferences.notifications,
+                          [item.key]: !isOn
+                        }
+                      }
+                    };
+                    setProfile(updated);
+                    saveProfile(updated);
+                  }}
+                  className={`w-9 h-[18px] rounded-full relative cursor-pointer transition-colors ${
+                    isOn
+                      ? "bg-[var(--accent)]"
+                      : "bg-[var(--bg-surface)] border border-[var(--border)]"
                   }`}
-                />
+                >
+                  <div
+                    className={`w-3.5 h-3.5 rounded-full bg-white absolute top-[1px] transition-all ${
+                      isOn ? "left-[19px]" : "left-[1px]"
+                    }`}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
