@@ -34,12 +34,24 @@ export default function DashboardPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [displayName, setDisplayName] = useState<string>("");
 
   const workloadData = getWorkloadData(tasks);
   const burnout = calculateBurnoutScore(tasks);
 
   // Load tasks from Supabase on mount
   useEffect(() => {
+    // Load display name from profile
+    try {
+      const raw = localStorage.getItem("campus-life-os-profile");
+      if (raw) {
+        const profile = JSON.parse(raw);
+        if (profile.displayName) {
+          setDisplayName(profile.displayName);
+        }
+      }
+    } catch (e) {}
+
     const userEmail = session?.user?.email;
     if (!userEmail) return;
 
@@ -307,7 +319,7 @@ export default function DashboardPage() {
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const userName = session?.user?.name?.split(" ")[0] || "Student";
+  const userName = displayName || session?.user?.name?.split(" ")[0] || "Student";
 
   return (
     <div className="space-y-5">
