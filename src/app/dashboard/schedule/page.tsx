@@ -264,7 +264,8 @@ export default function SchedulePage() {
              endTime.setHours(endHour, endMin, 0, 0);
              
              payloadBlocks.push({
-               ...b,
+               title: b.title,
+               type: b.type,
                startTime: startTime.toISOString(),
                endTime: endTime.toISOString()
              });
@@ -283,8 +284,9 @@ export default function SchedulePage() {
       } else {
         alert(`Failed to sync: ${data.error}`);
       }
-    } catch (e) {
-      alert("Error syncing to Google Calendar");
+    } catch (e: any) {
+      console.error("Client side push error:", e);
+      alert(`Error syncing to Google Calendar: ${e.message}`);
     } finally {
       setPushingToGCal(false);
     }
