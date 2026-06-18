@@ -371,12 +371,23 @@ export default function SettingsPage() {
             </div>
             <button
               onClick={async () => {
-                if (confirm("Are you sure you want to delete ALL tasks? This cannot be undone.")) {
+                if (confirm("Are you sure you want to delete ALL tasks AND remove synced calendar events? This cannot be undone.")) {
                   const { supabase } = await import("@/lib/supabase");
                   const userEmail = session?.user?.email;
                   if (userEmail) {
                     await supabase.from("tasks").delete().eq("user_email", userEmail);
-                    alert("All tasks deleted! You can now run a fresh sync from the dashboard.");
+                    
+                    try {
+                      const res = await fetch("/api/calendar/wipe", { method: "POST" });
+                      const data = await res.json();
+                      if (res.ok) {
+                        alert(`All tasks deleted! Also removed ${data.deletedCount} synced events from Google Calendar. You can now run a fresh sync.`);
+                      } else {
+                        alert(`Tasks deleted, but failed to wipe Google Calendar: ${data.error}`);
+                      }
+                    } catch (e) {
+                      alert("Tasks deleted, but error contacting Google Calendar wipe endpoint.");
+                    }
                   }
                 }
               }}
