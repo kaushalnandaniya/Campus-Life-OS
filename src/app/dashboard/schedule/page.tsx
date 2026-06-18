@@ -249,8 +249,18 @@ export default function SchedulePage() {
       const { data: tasksData } = await supabase.from("tasks").select("*").eq("user_email", userEmail);
       if (tasksData) {
         setTasks(tasksData.map((t: any) => ({
-          id: t.id, title: t.title, subjectCourse: t.subject_course, deadline: t.deadline,
-          estimatedEffortHours: t.estimated_effort_hours, priority: t.priority, status: t.status
+          id: t.id, 
+          title: t.title, 
+          description: t.description || "",
+          subjectCourse: t.subject_course, 
+          taskType: t.task_type || "assignment",
+          deadline: t.deadline,
+          estimatedEffortHours: t.estimated_effort_hours, 
+          priority: t.priority, 
+          status: t.status,
+          source: t.source || "manual",
+          aiConfidence: t.ai_confidence || 100,
+          createdAt: t.created_at || new Date().toISOString()
         })));
       }
 
