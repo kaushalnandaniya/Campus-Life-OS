@@ -3,9 +3,11 @@ import { getServerSession } from "next-auth/next";
 import { createClient } from "@supabase/supabase-js";
 import { fetchCalendarEvents } from "@/lib/gcal";
 
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions) as any;
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
