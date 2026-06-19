@@ -99,9 +99,12 @@ export async function POST(req: NextRequest) {
         // Find the access token for this source email
         const sourceAccount = accounts.find((a: any) => a.email === sourceEmail) || accounts[0];
         
-        let gcal_event_id = null;
+        let gcal_event_ids: string[] = [];
         if (t.deadline && t.deadline !== "null") {
-          gcal_event_id = await pushTaskToCalendar(sourceAccount.accessToken, t);
+          for (const account of accounts) {
+            const id = await pushTaskToCalendar(account.access_token, t);
+            if (id) gcal_event_ids.push(id);
+          }
         }
 
         dbTasks.push({
@@ -116,7 +119,7 @@ export async function POST(req: NextRequest) {
           status: t.status,
           source: t.source,
           ai_confidence: t.aiConfidence,
-          gcal_event_id: gcal_event_id
+          gcal_event_id: gcal_event_ids.length > 0 ? gcal_event_ids.join(",") : null
         });
       }
 

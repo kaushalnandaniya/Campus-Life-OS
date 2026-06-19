@@ -198,13 +198,16 @@ function generateSmartScheduleRange(
       let scheduledThisTask = false;
 
       if (aiBlocksInjected < 2 && diff >= 0 && diff <= 7) {
-        const requiredEffort = Math.min(task.estimatedEffortHours || 1.5, 2) * 60;
+        const remainingEffortHours = task.estimatedEffortHours || 1.5;
+        // Schedule up to 2 hours at a time to prevent burnout
+        const requiredEffort = Math.min(remainingEffortHours, 2) * 60;
+        
         const gapIndex = freeGaps.findIndex((g) => g.end - g.start >= requiredEffort);
         
         if (gapIndex !== -1) {
           const gap = freeGaps[gapIndex];
           blocks.push({
-            id: `ai-${task.id}-${dateStr}`,
+            id: `ai-${task.id}-${dateStr}-${aiBlocksInjected}`,
             time: minutesToTime(gap.start),
             endTimeStr: minutesToTime(gap.start + requiredEffort),
             startMins: gap.start,
@@ -217,10 +220,14 @@ function generateSmartScheduleRange(
           freeGaps[gapIndex].start += requiredEffort;
           aiBlocksInjected++;
           scheduledThisTask = true;
+          
+          // Deduct scheduled time
+          task.estimatedEffortHours = remainingEffortHours - (requiredEffort / 60);
         }
       }
 
-      if (!scheduledThisTask) {
+      // If we didn't schedule it at all, OR if it still has remaining effort, carry it over!
+      if (!scheduledThisTask || task.estimatedEffortHours > 0) {
         stillUnscheduled.push(task);
       }
     }
