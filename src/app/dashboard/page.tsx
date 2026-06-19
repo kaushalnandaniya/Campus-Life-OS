@@ -254,6 +254,22 @@ export default function DashboardPage() {
     setSyncing(false);
   }, [session]);
 
+  // Hourly Auto-Sync when dashboard is active
+  useEffect(() => {
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    
+    const intervalId = setInterval(() => {
+      // Only trigger auto-sync if the user is actively viewing the tab
+      // and a sync is not already in progress
+      if (!syncing && document.visibilityState === 'visible') {
+        console.log("[Auto-Sync] Triggering hourly background sync...");
+        handleSync();
+      }
+    }, ONE_HOUR_MS);
+
+    return () => clearInterval(intervalId);
+  }, [handleSync, syncing]);
+
   // Stats
   const actionableTasks = tasks.filter(t => t.taskType !== "notice" && t.taskType !== "announcement");
   const filteredNotices = tasks.filter(t => t.taskType === "notice" || t.taskType === "announcement");

@@ -126,6 +126,15 @@ export async function POST(req: NextRequest) {
       } else {
         console.log(`[Sync] Successfully saved ${dbTasks.length} tasks to Supabase`);
       }
+      
+      // Update last sync timestamp for all processed accounts
+      for (const account of accounts) {
+         await supabase
+           .from("connected_accounts")
+           .update({ last_sync_timestamp: Math.floor(Date.now() / 1000) })
+           .eq("account_email", account.email)
+           .eq("user_email", userEmail);
+      }
     }
 
     return NextResponse.json({

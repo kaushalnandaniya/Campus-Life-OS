@@ -562,15 +562,6 @@ export default function SchedulePage() {
             </span>
             <button onClick={() => changeDate(1)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] rounded transition-colors"><ChevronRight className="w-4 h-4" /></button>
           </div>
-
-          <button 
-            onClick={() => handlePushToGCal(scheduleMap)}
-            disabled={pushingToGCal}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-md bg-[rgba(96,165,250,0.1)] text-[var(--color-info)] border border-[rgba(96,165,250,0.2)] hover:bg-[rgba(96,165,250,0.2)] transition-colors"
-          >
-            {pushingToGCal ? <span className="animate-spin text-lg leading-none mt-[-2px]">↻</span> : <Sparkles className="w-3.5 h-3.5" />}
-            {pushingToGCal ? "Syncing..." : "Sync to GCal"}
-          </button>
         </div>
       </div>
 
