@@ -110,7 +110,7 @@ export default function DashboardPage() {
 
     const fetchCalendar = async () => {
       try {
-        const res = await fetch("/api/calendar");
+        const res = await fetch(`/api/calendar?t=${Date.now()}`, { cache: "no-store" });
         const data = await res.json();
         if (data.events) {
           setCalendarEvents(data.events);
