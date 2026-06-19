@@ -11,7 +11,6 @@ export async function POST(req: NextRequest) {
     // Get multi-account data from request body
     const body = await req.json();
     const accounts: { email: string; accessToken: string }[] = body.accounts || [];
-    const lastSyncTimestamp: number | null = body.lastSyncTimestamp || null;
 
     if (!accounts || accounts.length === 0) {
       return NextResponse.json(
@@ -20,12 +19,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`[Sync] Fetching emails from ${accounts.length} inboxes (since: ${lastSyncTimestamp ? new Date(lastSyncTimestamp * 1000).toLocaleString() : 'last 7 days'})...`);
+    const userEmail = accounts[0]?.email;
+
+    // Load individual sync timestamps from DB
+    const { supabase } = await import("@/lib/supabase");
+    const { data: dbAccounts } = await supabase
+      .from("connected_accounts")
+      .select("account_email, last_sync_timestamp")
+      .eq("user_email", userEmail);
+
+    console.log(`[Sync] Fetching emails from ${accounts.length} inboxes...`);
     
     // Step 1: Fetch emails from ALL inboxes in parallel
     const emailPromises = accounts.map(async (acc) => {
+      const dbAcc = dbAccounts?.find(d => d.account_email === acc.email);
+      const accLastSync = dbAcc?.last_sync_timestamp || null;
+
       try {
-        const emails = await fetchGmailEmails(acc.accessToken, 15, lastSyncTimestamp);
+        const emails = await fetchGmailEmails(acc.accessToken, 15, accLastSync);
         return emails.map(e => ({ ...e, _sourceAccount: acc.email }));
       } catch (err) {
         console.error(`Failed to fetch emails for ${acc.email}:`, err);
@@ -46,11 +57,22 @@ export async function POST(req: NextRequest) {
     console.log(`[Sync] Fetched a total of ${rawEmails.length} unique emails across all accounts.`);
 
     if (rawEmails.length === 0) {
+      // Update last sync timestamp even if 0 emails found
+      if (userEmail) {
+        for (const account of accounts) {
+           await supabase
+             .from("connected_accounts")
+             .update({ last_sync_timestamp: Math.floor(Date.now() / 1000) })
+             .eq("account_email", account.email)
+             .eq("user_email", userEmail);
+        }
+      }
+
       return NextResponse.json({
         tasks: [],
         emailsScanned: 0,
         emailsFiltered: 0,
-        message: lastSyncTimestamp ? "Up to date! No new emails since last sync." : "No emails found in the last 7 days.",
+        message: "Up to date! No new academic emails found since last sync.",
       });
     }
 
@@ -83,10 +105,8 @@ export async function POST(req: NextRequest) {
     
     console.log(`[Sync] Extracted a total of ${extractedTasks.length} tasks across all chunks`);
 
-    const userEmail = accounts[0]?.email;
     if (extractedTasks.length > 0 && userEmail) {
       // Step 4: Save to Supabase and Push to Google Calendar
-      const { supabase } = await import("@/lib/supabase");
       const { pushTaskToCalendar } = await import("@/lib/gcal");
       
       const dbTasks = [];
@@ -129,8 +149,10 @@ export async function POST(req: NextRequest) {
       } else {
         console.log(`[Sync] Successfully saved ${dbTasks.length} tasks to Supabase`);
       }
-      
-      // Update last sync timestamp for all processed accounts
+    }
+
+    // Always update last sync timestamp for all processed accounts
+    if (userEmail) {
       for (const account of accounts) {
          await supabase
            .from("connected_accounts")
