@@ -12,6 +12,7 @@ export default function ForecastPage() {
   const { data: session } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
 
   useEffect(() => {
     const userEmail = session?.user?.email;
@@ -50,11 +51,30 @@ export default function ForecastPage() {
       } catch (err) {}
     };
 
+    const fetchActivities = async () => {
+      const { data, error } = await supabase
+        .from("activities")
+        .select("*")
+        .eq("user_email", userEmail);
+
+      if (!error && data) {
+        setActivities(data.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          type: "personal",
+          daysOfWeek: a.days_of_week || [],
+          startTime: a.start_time,
+          endTime: a.end_time,
+        })));
+      }
+    };
+
     fetchTasks();
     fetchCalendar();
+    fetchActivities();
   }, [session]);
 
-  const data = getWorkloadData(tasks, calendarEvents);
+  const data = getWorkloadData(tasks, calendarEvents, activities);
   const heaviest = data.reduce((max, d) => (d.total > max.total ? d : max), data[0]);
   const deadlineDays = data.filter((d) => d.taskCount > 0);
 
