@@ -1,11 +1,60 @@
 "use client";
 
-import { getWorkloadData } from "@/lib/demo-data";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { supabase } from "@/lib/supabase";
+import { getWorkloadData, type Task } from "@/lib/demo-data";
+import { CalendarEvent } from "@/lib/scheduler";
 import WorkloadChart from "@/components/WorkloadChart";
 import { TrendingUp, AlertTriangle, Calendar } from "lucide-react";
 
 export default function ForecastPage() {
-  const data = getWorkloadData();
+  const { data: session } = useSession();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+
+  useEffect(() => {
+    const userEmail = session?.user?.email;
+    if (!userEmail) return;
+
+    const fetchTasks = async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_email", userEmail)
+        .order("deadline", { ascending: true });
+
+      if (!error && data) {
+        setTasks(data.map((t) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          subjectCourse: t.subject_course,
+          taskType: t.task_type,
+          deadline: t.deadline,
+          estimatedEffortHours: t.estimated_effort_hours,
+          priority: t.priority,
+          status: t.status,
+          source: t.source,
+          aiConfidence: t.ai_confidence,
+          createdAt: t.created_at || new Date().toISOString(),
+        })));
+      }
+    };
+
+    const fetchCalendar = async () => {
+      try {
+        const res = await fetch("/api/calendar");
+        const calData = await res.json();
+        if (calData.events) setCalendarEvents(calData.events);
+      } catch (err) {}
+    };
+
+    fetchTasks();
+    fetchCalendar();
+  }, [session]);
+
+  const data = getWorkloadData(tasks, calendarEvents);
   const heaviest = data.reduce((max, d) => (d.total > max.total ? d : max), data[0]);
   const deadlineDays = data.filter((d) => d.taskCount > 0);
 

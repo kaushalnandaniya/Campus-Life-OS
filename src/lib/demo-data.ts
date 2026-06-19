@@ -256,35 +256,42 @@ export const demoConflicts: ConflictAlert[] = [
   },
 ];
 
+import { BaselineEvent, CalendarEvent, defaultBaselineRoutine, generateSmartScheduleRange } from "./scheduler";
+
 // ===== WORKLOAD DATA =====
-export function getWorkloadData(tasks: Task[] = demoTasks) {
+export function getWorkloadData(
+  tasks: Task[] = demoTasks, 
+  calendarEvents: CalendarEvent[] = [], 
+  baselineRoutine: BaselineEvent[] = defaultBaselineRoutine
+) {
   const data = [];
+  const start = new Date(today);
+  const end = new Date(today);
+  end.setDate(end.getDate() + 13); // +13 to make it 14 days total including today
+
+  // Generate the AI schedule
+  const scheduleMap = generateSmartScheduleRange(start, end, baselineRoutine, calendarEvents, tasks);
+
   for (let i = 0; i < 14; i++) {
     const date = new Date(today);
     date.setDate(date.getDate() + i);
     const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
     const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const fullDateStr = date.toDateString();
 
-    // Calculate effort from tasks due on this day
-    const dayTasks = tasks.filter((t) => {
-      if (!t.deadline) return false;
-      const d = new Date(t.deadline);
-      return d.getDate() === date.getDate() && d.getMonth() === date.getMonth();
-    });
+    const blocks = scheduleMap[fullDateStr] || [];
 
-    const academicHours = dayTasks.reduce((sum, t) => sum + (t.estimatedEffortHours || 0), 0);
+    // Academic effort comes from "academic" routine blocks + "ai-suggested" study blocks
+    const academicHours = blocks
+      .filter(b => b.type === "academic" || b.type === "ai-suggested")
+      .reduce((sum, b) => sum + (b.endMins - b.startMins) / 60, 0);
 
-    // Personal activity hours
-    const dayOfWeek = date.getDay();
-    const personalHours = demoActivities
-      .filter((a) => a.daysOfWeek.includes(dayOfWeek))
-      .reduce((sum, a) => {
-        const [sh, sm] = a.startTime.split(":").map(Number);
-        const [eh, em] = a.endTime.split(":").map(Number);
-        let diff = eh - sh + (em - sm) / 60;
-        if (diff < 0) diff += 24; // overnight (sleep)
-        return sum + diff;
-      }, 0);
+    // Personal effort comes from "personal" routine blocks + "calendar" events
+    const personalHours = blocks
+      .filter(b => b.type === "personal" || b.type === "calendar")
+      .reduce((sum, b) => sum + (b.endMins - b.startMins) / 60, 0);
+
+    const taskCount = blocks.filter(b => b.type === "ai-suggested").length;
 
     data.push({
       day: dayName,
@@ -292,7 +299,7 @@ export function getWorkloadData(tasks: Task[] = demoTasks) {
       academic: academicHours,
       personal: Math.min(personalHours, 4), // cap for chart readability
       total: academicHours + Math.min(personalHours, 4),
-      taskCount: dayTasks.length,
+      taskCount: taskCount,
     });
   }
   return data;

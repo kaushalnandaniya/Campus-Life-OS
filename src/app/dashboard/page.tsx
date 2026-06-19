@@ -36,7 +36,7 @@ export default function DashboardPage() {
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [displayName, setDisplayName] = useState<string>("");
 
-  const workloadData = getWorkloadData(tasks);
+  const workloadData = getWorkloadData(tasks, calendarEvents);
   const burnout = calculateBurnoutScore(tasks);
 
   // Load tasks from Supabase on mount
