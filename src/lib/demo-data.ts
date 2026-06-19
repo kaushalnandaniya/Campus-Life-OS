@@ -284,12 +284,20 @@ export function getWorkloadData(
     // Academic effort comes from "academic" routine blocks + "ai-suggested" study blocks
     const academicHours = blocks
       .filter(b => b.type === "academic" || b.type === "ai-suggested")
-      .reduce((sum, b) => sum + (b.endMins - b.startMins) / 60, 0);
+      .reduce((sum, b) => {
+        let dur = b.endMins - b.startMins;
+        if (dur < 0) dur += 1440; // Handle midnight crossover
+        return sum + dur / 60;
+      }, 0);
 
     // Personal effort comes from "personal" routine blocks + "calendar" events
     const personalHours = blocks
       .filter(b => b.type === "personal" || b.type === "calendar")
-      .reduce((sum, b) => sum + (b.endMins - b.startMins) / 60, 0);
+      .reduce((sum, b) => {
+        let dur = b.endMins - b.startMins;
+        if (dur < 0) dur += 1440; // Handle midnight crossover
+        return sum + dur / 60;
+      }, 0);
 
     const taskCount = blocks.filter(b => b.type === "ai-suggested").length;
 

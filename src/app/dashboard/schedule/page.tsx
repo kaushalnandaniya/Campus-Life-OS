@@ -305,12 +305,15 @@ export default function SchedulePage() {
     return layout;
   };
 
-  const renderEventBlock = (block: ScheduleBlock, layoutInfo?: { left: number, width: number }) => {
+  const renderEventBlock = (block: ScheduleBlock, layout?: { left: string, width: string, col: number, maxCols: number }) => {
     const top = (block.startMins - HOURS_START * 60) * PIXELS_PER_MINUTE;
-    const height = (block.endMins - block.startMins) * PIXELS_PER_MINUTE;
-
-    let bgClass = "bg-[var(--bg-surface)] border-[var(--border)]";
+    let bgClass = "bg-[var(--bg-surface)] border border-[var(--border)]";
+    let textClass = "text-[var(--text-primary)]";
     let accentColor = "var(--text-muted)";
+    
+    let dur = block.endMins - block.startMins;
+    if (dur < 0) dur += 1440;
+    const height = dur * PIXELS_PER_MINUTE;
     
     if (block.type === "ai-suggested") {
       bgClass = "bg-[var(--accent-dim)] border-[var(--accent-border)] text-[var(--accent)]";

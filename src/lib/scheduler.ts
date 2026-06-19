@@ -114,9 +114,15 @@ export function generateSmartScheduleRange(
         endMins: dEnd.getHours() * 60 + dEnd.getMinutes(),
         event: e,
       };
-    }).filter(e => e.endMins - e.startMins > 0);
+    }).filter(e => {
+      let dur = e.endMins - e.startMins;
+      if (dur < 0) dur += 1440;
+      return dur > 0;
+    });
 
     parsedCalendarEvents.forEach(pe => {
+      let dur = pe.endMins - pe.startMins;
+      if (dur < 0) dur += 1440;
       blocks.push({
         id: pe.event.id,
         time: minutesToTime(pe.startMins),
@@ -125,7 +131,7 @@ export function generateSmartScheduleRange(
         endMins: pe.endMins,
         title: pe.event.title,
         type: "calendar",
-        duration: formatDuration(pe.endMins - pe.startMins),
+        duration: formatDuration(dur),
       });
     });
 
@@ -141,6 +147,8 @@ export function generateSmartScheduleRange(
       );
 
       if (!overlapsWithGCal) {
+        let dur = endMins - startMins;
+        if (dur < 0) dur += 1440;
         blocks.push({
           id: e.id,
           time: e.startTime,
@@ -149,7 +157,7 @@ export function generateSmartScheduleRange(
           endMins,
           title: e.title,
           type: e.type,
-          duration: formatDuration(endMins - startMins),
+          duration: formatDuration(dur),
           course: e.course,
         });
       }
