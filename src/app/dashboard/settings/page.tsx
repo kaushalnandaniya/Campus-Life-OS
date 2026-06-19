@@ -352,8 +352,16 @@ export default function SettingsPage() {
               </p>
             </div>
             <button
-              onClick={() => {
+              onClick={async () => {
                 localStorage.removeItem("campus-life-os-last-sync");
+                const userEmail = session?.user?.email;
+                if (userEmail) {
+                  const { supabase } = await import("@/lib/supabase");
+                  await supabase
+                    .from("connected_accounts")
+                    .update({ last_sync_timestamp: null })
+                    .eq("user_email", userEmail);
+                }
                 alert("Sync history cleared! The next sync will do a full 7-day scan.");
               }}
               className="btn-secondary text-[var(--color-danger)] hover:bg-[rgba(239,68,68,0.1)] hover:border-[var(--color-danger)]"
