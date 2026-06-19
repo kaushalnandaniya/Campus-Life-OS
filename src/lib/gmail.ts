@@ -107,8 +107,10 @@ function buildSearchQuery(lastSyncTimestamp: number | null): string {
     parts.push("newer_than:7d");
   }
 
-  // Exclude sent mail and drafts, and ONLY scan the Primary inbox (ignore Promotions, Social, etc.)
-  parts.push("-in:sent -in:drafts category:primary");
+  // Exclude sent mail, drafts, and junk categories (Promotions, Social)
+  // We use negative filters instead of `category:primary` because institutional Google Workspace 
+  // accounts often have inbox tabs disabled, which makes `category:primary` return 0 results.
+  parts.push("-in:sent -in:drafts -category:promotions -category:social");
 
   return parts.join(" ");
 }
