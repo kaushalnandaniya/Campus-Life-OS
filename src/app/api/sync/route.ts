@@ -93,8 +93,8 @@ export async function POST(req: NextRequest) {
       _sourceAccount: e._sourceAccount,
     }));
     
-    // Batch process in chunks of 10 to prevent MAX_TOKENS truncation on long responses
-    const CHUNK_SIZE = 10;
+    // Batch process in chunks of 5 to prevent MAX_TOKENS truncation on long JSON array responses
+    const CHUNK_SIZE = 5;
     const extractedTasks = [];
     
     for (let i = 0; i < mappedEmails.length; i += CHUNK_SIZE) {
