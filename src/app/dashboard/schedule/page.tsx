@@ -329,8 +329,8 @@ export default function SchedulePage() {
     const style: React.CSSProperties = {
       top: `${top}px`,
       height: `${Math.max(height, 20)}px`,
-      left: layoutInfo ? `calc(${layoutInfo.left}% + 4px)` : '4px',
-      width: layoutInfo ? `calc(${layoutInfo.width}% - 8px)` : 'calc(100% - 8px)'
+      left: layout ? `calc(${layout.left}% + 4px)` : '4px',
+      width: layout ? `calc(${layout.width}% - 8px)` : 'calc(100% - 8px)'
     };
 
     return (
