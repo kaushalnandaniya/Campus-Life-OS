@@ -305,7 +305,7 @@ export default function SchedulePage() {
     return layout;
   };
 
-  const renderEventBlock = (block: ScheduleBlock, layout?: { left: string, width: string, col: number, maxCols: number }) => {
+  const renderEventBlock = (block: ScheduleBlock, layout?: { left: number, width: number }) => {
     const top = (block.startMins - HOURS_START * 60) * PIXELS_PER_MINUTE;
     let bgClass = "bg-[var(--bg-surface)] border border-[var(--border)]";
     let textClass = "text-[var(--text-primary)]";
