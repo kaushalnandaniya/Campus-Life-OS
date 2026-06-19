@@ -23,51 +23,59 @@ export async function POST(req: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Get primary account token from vault
-    const { data: account, error } = await supabase
+    // Get ALL connected accounts from vault
+    const { data: accounts, error } = await supabase
       .from("connected_accounts")
       .select("*")
-      .eq("user_email", primaryEmail)
-      .eq("account_email", primaryEmail)
-      .single();
+      .eq("user_email", primaryEmail);
 
-    if (error || !account) {
-      throw new Error("Failed to fetch primary account token");
+    if (error || !accounts || accounts.length === 0) {
+      throw new Error("Failed to fetch account tokens");
     }
 
-    let accessToken = account.access_token;
+    let deletedCount = 0;
 
-    // Refresh if needed
-    if (account.expires_at < Date.now() + 60000 && account.refresh_token) {
-      const tokenUrl = "https://oauth2.googleapis.com/token";
-      const res = await fetch(tokenUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: process.env.GOOGLE_CLIENT_ID || "",
-          client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
-          grant_type: "refresh_token",
-          refresh_token: account.refresh_token,
-        }),
-      });
-      const refreshedTokens = await res.json();
-      if (res.ok && refreshedTokens.access_token) {
-        accessToken = refreshedTokens.access_token;
-        const newExpiresAt = Date.now() + refreshedTokens.expires_in * 1000;
-        await supabase.from("connected_accounts").update({
-          access_token: accessToken,
-          expires_at: newExpiresAt,
-        }).eq("id", account.id);
+    for (const account of accounts) {
+      let accessToken = account.access_token;
+
+      // Refresh if needed
+      if (account.expires_at < Date.now() + 60000 && account.refresh_token) {
+        const tokenUrl = "https://oauth2.googleapis.com/token";
+        const res = await fetch(tokenUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: process.env.GOOGLE_CLIENT_ID || "",
+            client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+            grant_type: "refresh_token",
+            refresh_token: account.refresh_token,
+          }),
+        });
+        const refreshedTokens = await res.json();
+        if (res.ok && refreshedTokens.access_token) {
+          accessToken = refreshedTokens.access_token;
+          const newExpiresAt = Date.now() + refreshedTokens.expires_in * 1000;
+          await supabase.from("connected_accounts").update({
+            access_token: accessToken,
+            expires_at: newExpiresAt,
+          }).eq("id", account.id);
+        }
+      }
+
+      const success = await deleteCalendarEvent(accessToken, eventId);
+
+      if (success) {
+        deletedCount++;
       }
     }
 
-    const success = await deleteCalendarEvent(accessToken, eventId);
-
-    if (!success) {
-      throw new Error("Failed to delete event from Google Calendar");
+    // Even if it only deletes from one account, we consider it a success since the eventId
+    // usually only belongs to one specific calendar account.
+    if (deletedCount === 0) {
+      throw new Error("Failed to delete event from any Google Calendars");
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, deletedCount });
   } catch (error: any) {
     console.error("[Calendar Delete API] Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
