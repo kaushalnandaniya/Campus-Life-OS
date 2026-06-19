@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
         let gcal_event_ids: string[] = [];
         if (t.deadline && t.deadline !== "null") {
           for (const account of accounts) {
-            const id = await pushTaskToCalendar(account.access_token, t);
+            const id = await pushTaskToCalendar(account.accessToken, t);
             if (id) gcal_event_ids.push(id);
           }
         }
