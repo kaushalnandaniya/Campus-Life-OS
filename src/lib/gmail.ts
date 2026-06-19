@@ -107,8 +107,8 @@ function buildSearchQuery(lastSyncTimestamp: number | null): string {
     parts.push("newer_than:7d");
   }
 
-  // Exclude sent mail and drafts
-  parts.push("-in:sent -in:drafts");
+  // Exclude sent mail and drafts, and ONLY scan the Primary inbox (ignore Promotions, Social, etc.)
+  parts.push("-in:sent -in:drafts category:primary");
 
   return parts.join(" ");
 }
