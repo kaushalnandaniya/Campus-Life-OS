@@ -440,17 +440,22 @@ export default function DashboardPage() {
         {/* Right Panel */}
         <div className="space-y-4">
           {/* Notice Feed */}
-          {filteredNotices.length > 0 && (
-            <div className="glass-card p-5 animate-fade-in-up stagger-1 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-[var(--color-info)]" />
-                  <h2 className="text-sm font-medium text-[var(--text-primary)]">
-                    Notices & Updates
-                  </h2>
-                </div>
-                <span className="badge badge-low">{filteredNotices.length}</span>
+          <div className="glass-card p-5 animate-fade-in-up stagger-1 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-[var(--color-info)]" />
+                <h2 className="text-sm font-medium text-[var(--text-primary)]">
+                  Notices & Updates
+                </h2>
               </div>
+              <span className="badge badge-low">{filteredNotices.length}</span>
+            </div>
+            
+            {filteredNotices.length === 0 ? (
+              <div className="text-center py-6 text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded-md">
+                <p className="text-xs">No recent notices found</p>
+              </div>
+            ) : (
               <div className="space-y-3">
                 {filteredNotices.map((notice) => (
                   <div key={notice.id} className="p-3 rounded-md bg-[var(--bg-surface)] border border-[var(--border)]">
@@ -467,8 +472,8 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Calendar Events Widget */}
           {calendarEvents.length > 0 && (
