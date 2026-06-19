@@ -57,6 +57,33 @@ export const authOptions: any = {
     }),
   ],
   callbacks: {
+    async signIn({ user, account, profile }: any) {
+      const email = user.email?.toLowerCase();
+      if (!email) return false;
+
+      if (email.endsWith('@dau.ac.in')) {
+        return true;
+      }
+
+      // Check if it's a linked account
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+      const { data } = await supabase
+        .from('connected_accounts')
+        .select('user_email')
+        .eq('account_email', email)
+        .single();
+
+      if (data && data.user_email) {
+        return true;
+      }
+
+      // If not @dau.ac.in and not linked, reject
+      return "/?error=AccessDenied";
+    },
     async jwt({ token, account, user }: any) {
       if (account && user) {
         // Initial sign in
@@ -64,16 +91,34 @@ export const authOptions: any = {
         token.refreshToken = account.refresh_token;
         token.accessTokenExpires = account.expires_at ? account.expires_at * 1000 : 0;
         
+        const email = user.email.toLowerCase();
+        let primaryEmail = email;
+
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+        if (!email.endsWith('@dau.ac.in')) {
+          const { data } = await supabase
+            .from('connected_accounts')
+            .select('user_email')
+            .eq('account_email', email)
+            .single();
+
+          if (data && data.user_email) {
+            primaryEmail = data.user_email;
+          }
+        }
+
+        token.primaryEmail = primaryEmail;
+        token.originalEmail = email;
+        
         // Save to Supabase Token Vault
-        if (user.email && account.access_token) {
-          const { createClient } = await import('@supabase/supabase-js');
-          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-          const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-          const supabase = createClient(supabaseUrl, supabaseAnonKey);
-          
+        if (email && account.access_token) {
           await supabase.from('connected_accounts').upsert({
-            user_email: user.email.toLowerCase(),
-            account_email: user.email.toLowerCase(),
+            user_email: primaryEmail,
+            account_email: email,
             access_token: account.access_token,
             refresh_token: account.refresh_token,
             expires_at: token.accessTokenExpires
@@ -92,7 +137,7 @@ export const authOptions: any = {
       const refreshedToken = await refreshAccessToken(token);
       
       // Update the vault with the new access token
-      if (refreshedToken.email && refreshedToken.accessToken) {
+      if (refreshedToken.originalEmail && refreshedToken.accessToken) {
          const { createClient } = await import('@supabase/supabase-js');
          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
          const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -102,12 +147,15 @@ export const authOptions: any = {
            access_token: refreshedToken.accessToken,
            refresh_token: refreshedToken.refreshToken,
            expires_at: refreshedToken.accessTokenExpires
-         }).match({ user_email: refreshedToken.email, account_email: refreshedToken.email });
+         }).match({ user_email: refreshedToken.primaryEmail, account_email: refreshedToken.originalEmail });
       }
       
       return refreshedToken;
     },
     async session({ session, token }: any) {
+      if (token.primaryEmail && session.user) {
+        session.user.email = token.primaryEmail;
+      }
       // Pass access token and error to client session
       (session as any).accessToken = token.accessToken;
       (session as any).error = token.error;
