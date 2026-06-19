@@ -33,13 +33,7 @@ export interface ScheduleBlock {
   course?: string;
 }
 
-export const defaultBaselineRoutine: BaselineEvent[] = [
-  { id: "b1", title: "Sleep", type: "personal", daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: "23:00", endTime: "07:00" },
-  { id: "b2", title: "Morning Prep", type: "personal", daysOfWeek: [1, 2, 3, 4, 5], startTime: "07:00", endTime: "08:30" },
-  { id: "b3", title: "Gym", type: "personal", daysOfWeek: [1, 3, 5], startTime: "17:00", endTime: "18:30" },
-  { id: "b4", title: "Data Structures", type: "academic", course: "CS201", daysOfWeek: [1, 3], startTime: "10:00", endTime: "11:30" },
-  { id: "b5", title: "Physics Lab", type: "academic", course: "PH102", daysOfWeek: [2], startTime: "14:00", endTime: "17:00" },
-];
+export const defaultBaselineRoutine: BaselineEvent[] = [];
 
 export function timeToMinutes(timeStr: string) {
   const [h, m] = timeStr.split(":").map(Number);
