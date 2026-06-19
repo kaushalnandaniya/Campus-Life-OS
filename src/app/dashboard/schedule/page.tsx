@@ -253,53 +253,130 @@ export default function SchedulePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [pushingToGCal, setPushingToGCal] = useState(false);
 
-  const handlePushToGCal = async (scheduleMap: Record<string, ScheduleBlock[]>) => {
-    if (pushingToGCal) return;
-    setPushingToGCal(true);
+  // Modal States
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addSlotDate, setAddSlotDate] = useState<Date | null>(null);
+  const [addTitle, setAddTitle] = useState("");
+  const [addDuration, setAddDuration] = useState("60");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [blockToDelete, setBlockToDelete] = useState<ScheduleBlock | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchFreshData = async () => {
+    const userEmail = session?.user?.email;
+    if (!userEmail) return;
+
+    // We can just call /api/calendar again to refresh calendar
+    try {
+      const res = await fetch("/api/calendar");
+      const calData = await res.json();
+      if (calData.events) setCalendarEvents(calData.events);
+      
+      const { data: tasksData } = await supabase.from("tasks").select("*").eq("user_email", userEmail);
+      if (tasksData) {
+        setTasks(tasksData.map((t: any) => ({
+          id: t.id, title: t.title, description: t.description || "", subjectCourse: t.subject_course, 
+          taskType: t.task_type || "assignment", deadline: t.deadline, estimatedEffortHours: t.estimated_effort_hours, 
+          priority: t.priority, status: t.status, source: t.source || "manual", aiConfidence: t.ai_confidence || 100,
+          createdAt: t.created_at || new Date().toISOString()
+        })));
+      }
+    } catch (e) {}
+  };
+
+  const handleSlotClick = (e: React.MouseEvent, clickedDate: Date) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    
+    // y is in pixels. Convert to minutes.
+    // y = (mins - HOURS_START * 60) * PIXELS_PER_MINUTE
+    // mins = y / PIXELS_PER_MINUTE + HOURS_START * 60
+    const clickedMins = Math.floor(y / PIXELS_PER_MINUTE) + HOURS_START * 60;
+    
+    // Round to nearest 15 mins
+    const roundedMins = Math.round(clickedMins / 15) * 15;
+    
+    const startHour = Math.floor(roundedMins / 60);
+    const startMin = roundedMins % 60;
+    
+    const selectedDateTime = new Date(clickedDate);
+    selectedDateTime.setHours(startHour, startMin, 0, 0);
+    
+    setAddSlotDate(selectedDateTime);
+    setAddTitle("");
+    setAddDuration("60");
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveNewEvent = async () => {
+    if (!addTitle || !addSlotDate) return;
+    setIsSaving(true);
     
     try {
-      const payloadBlocks: any[] = [];
-      Object.entries(scheduleMap).forEach(([dateStr, blocks]) => {
-        blocks.forEach(b => {
-          if (b.type !== "calendar") { // Don't push events already from GCal
-             const baseDate = new Date(dateStr);
-             const startHour = Math.floor(b.startMins / 60);
-             const startMin = b.startMins % 60;
-             const endHour = Math.floor(b.endMins / 60);
-             const endMin = b.endMins % 60;
-             
-             const startTime = new Date(baseDate);
-             startTime.setHours(startHour, startMin, 0, 0);
-             
-             const endTime = new Date(baseDate);
-             endTime.setHours(endHour, endMin, 0, 0);
-             
-             payloadBlocks.push({
-               title: b.title,
-               type: b.type,
-               startTime: startTime.toISOString(),
-               endTime: endTime.toISOString()
-             });
-          }
-        });
-      });
-
-      const res = await fetch("/api/calendar/push", {
+      const endDateTime = new Date(addSlotDate.getTime() + parseInt(addDuration) * 60000);
+      
+      const res = await fetch("/api/calendar/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blocks: payloadBlocks })
+        body: JSON.stringify({
+          title: addTitle,
+          startTime: addSlotDate.toISOString(),
+          endTime: endDateTime.toISOString()
+        })
       });
-      const data = await res.json();
+      
       if (res.ok) {
-        alert(`Successfully synced ${data.pushedCount} smart blocks to your Google Calendar!`);
+        setIsAddModalOpen(false);
+        await fetchFreshData();
       } else {
-        alert(`Failed to sync: ${data.error}`);
+        const data = await res.json();
+        alert(`Failed to save: ${data.error}`);
       }
-    } catch (e: any) {
-      console.error("Client side push error:", e);
-      alert(`Error syncing to Google Calendar: ${e.message}`);
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while saving.");
     } finally {
-      setPushingToGCal(false);
+      setIsSaving(false);
+    }
+  };
+
+  const handleBlockClick = (block: ScheduleBlock, e: React.MouseEvent) => {
+    e.stopPropagation(); // prevent triggering slot click
+    setBlockToDelete(block);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteBlock = async () => {
+    if (!blockToDelete) return;
+    setIsDeleting(true);
+    
+    try {
+      if (blockToDelete.type === "calendar") {
+        // Physical event
+        const res = await fetch("/api/calendar/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId: blockToDelete.id })
+        });
+        if (!res.ok) throw new Error("Failed to delete from GCal");
+      } else if (blockToDelete.type === "ai-suggested") {
+        // Task block. Extract original task ID.
+        // ID format: ai-{uuid}-date
+        const taskId = blockToDelete.id.split("-").slice(1, -1).join("-") || blockToDelete.id.replace("ai-", "");
+        
+        await supabase.from("tasks").delete().eq("id", taskId);
+      }
+      // Note: We don't support deleting baseline routines through UI currently
+      
+      setIsDeleteModalOpen(false);
+      await fetchFreshData();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete block");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -405,7 +482,8 @@ export default function SchedulePage() {
     return (
       <div
         key={block.id}
-        className={`absolute left-1 right-1 rounded-md border p-1.5 overflow-hidden shadow-sm transition-all hover:z-10 hover:shadow-md ${bgClass}`}
+        onClick={(e) => handleBlockClick(block, e)}
+        className={`absolute left-1 right-1 rounded-md border p-1.5 overflow-hidden shadow-sm transition-all hover:z-10 hover:shadow-md cursor-pointer ${bgClass}`}
         style={{ top: `${top}px`, height: `${Math.max(height, 20)}px` }}
       >
         <div className="flex items-start gap-1">
@@ -430,10 +508,13 @@ export default function SchedulePage() {
         <div className="bg-[var(--bg-elevated)] border-r border-[var(--border)] pt-4">
           {getTimelineScale()}
         </div>
-        <div className="flex-1 relative min-h-[1000px] bg-[var(--bg-card)]">
+        <div 
+          className="flex-1 relative min-h-[1000px] bg-[var(--bg-card)] cursor-crosshair"
+          onClick={(e) => handleSlotClick(e, currentDate)}
+        >
           {/* Grid lines */}
           {Array.from({ length: HOURS_END - HOURS_START + 1 }).map((_, i) => (
-             <div key={i} className="absolute left-0 right-0 border-t border-[var(--border)] opacity-30" style={{ top: `${i * 60 * PIXELS_PER_MINUTE}px` }} />
+             <div key={i} className="absolute left-0 right-0 border-t border-[var(--border)] opacity-30 pointer-events-none" style={{ top: `${i * 60 * PIXELS_PER_MINUTE}px` }} />
           ))}
           {blocks.map(renderEventBlock)}
         </div>
@@ -450,41 +531,34 @@ export default function SchedulePage() {
     }
 
     return (
-      <div className="glass-card flex flex-col animate-fade-in border border-[var(--border)] overflow-x-auto">
-        {/* Header */}
-        <div className="flex ml-12 border-b border-[var(--border)]">
+      <div className="glass-card flex animate-fade-in overflow-hidden border border-[var(--border)]">
+        <div className="bg-[var(--bg-elevated)] border-r border-[var(--border)] pt-8">
+          {getTimelineScale()}
+        </div>
+        <div className="flex-1 flex overflow-x-auto snap-x snap-mandatory">
           {days.map((d, i) => {
+            const dateStr = d.toDateString();
+            const blocks = scheduleMap[dateStr] || [];
             const isToday = d.toDateString() === new Date().toDateString();
+            
             return (
-              <div key={i} className="flex-1 text-center py-2 min-w-[100px] border-l border-[var(--border)] bg-[var(--bg-elevated)]">
-                <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">{dayNames[d.getDay()]}</div>
-                <div className={`text-sm font-medium ${isToday ? "text-[var(--accent)]" : "text-[var(--text-primary)]"}`}>
-                  {d.getDate()}
+              <div key={i} className="flex-1 min-w-[120px] border-r border-[var(--border)] last:border-r-0 snap-start">
+                <div className={`p-2 text-center border-b border-[var(--border)] sticky top-0 z-10 ${isToday ? 'bg-[rgba(96,165,250,0.1)]' : 'bg-[var(--bg-card)]'}`}>
+                  <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">{dayNames[d.getDay()]}</div>
+                  <div className={`text-sm font-bold mt-0.5 ${isToday ? 'text-[var(--accent)]' : ''}`}>{d.getDate()}</div>
+                </div>
+                <div 
+                  className="relative min-h-[1000px] bg-[var(--bg-surface)] cursor-crosshair hover:bg-[rgba(0,0,0,0.01)] transition-colors"
+                  onClick={(e) => handleSlotClick(e, d)}
+                >
+                  {Array.from({ length: HOURS_END - HOURS_START + 1 }).map((_, idx) => (
+                    <div key={idx} className="absolute left-0 right-0 border-t border-[var(--border)] opacity-20 pointer-events-none" style={{ top: `${idx * 60 * PIXELS_PER_MINUTE}px` }} />
+                  ))}
+                  {blocks.map(renderEventBlock)}
                 </div>
               </div>
             );
           })}
-        </div>
-        {/* Body */}
-        <div className="flex relative min-h-[1000px]">
-          <div className="bg-[var(--bg-elevated)] pt-4 z-10 sticky left-0">
-            {getTimelineScale()}
-          </div>
-          <div className="flex flex-1 relative bg-[var(--bg-card)]">
-             {/* Horizontal lines across all days */}
-             {Array.from({ length: HOURS_END - HOURS_START + 1 }).map((_, i) => (
-                <div key={i} className="absolute left-0 right-0 border-t border-[var(--border)] opacity-30 w-full" style={{ top: `${i * 60 * PIXELS_PER_MINUTE}px` }} />
-             ))}
-             {/* Day Columns */}
-             {days.map((d, i) => {
-               const blocks = scheduleMap[d.toDateString()] || [];
-               return (
-                 <div key={i} className="flex-1 relative min-w-[100px] border-l border-[var(--border)]">
-                   {blocks.map(renderEventBlock)}
-                 </div>
-               );
-             })}
-          </div>
         </div>
       </div>
     );
@@ -573,6 +647,114 @@ export default function SchedulePage() {
       {viewType === "daily" && renderDailyView()}
       {viewType === "weekly" && renderWeeklyView()}
       {viewType === "monthly" && renderMonthlyView()}
+
+      {/* Add Event Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in backdrop-blur-sm">
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl w-full max-w-sm overflow-hidden shadow-2xl animate-slide-up">
+            <div className="p-4 border-b border-[var(--border)] bg-[var(--bg-elevated)] flex justify-between items-center">
+              <h3 className="font-semibold text-sm">Add Calendar Event</h3>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-1 uppercase tracking-wider">Event Title</label>
+                <input 
+                  autoFocus
+                  type="text" 
+                  value={addTitle} 
+                  onChange={(e) => setAddTitle(e.target.value)}
+                  placeholder="e.g. Lunch with Sarah"
+                  className="w-full bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                />
+              </div>
+              
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-1 uppercase tracking-wider">Start Time</label>
+                  <div className="w-full bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] opacity-70 cursor-not-allowed">
+                    {addSlotDate ? addSlotDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ""}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-1 uppercase tracking-wider">Duration</label>
+                  <select 
+                    value={addDuration} 
+                    onChange={(e) => setAddDuration(e.target.value)}
+                    className="w-full bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  >
+                    <option value="15">15 min</option>
+                    <option value="30">30 min</option>
+                    <option value="45">45 min</option>
+                    <option value="60">1 hour</option>
+                    <option value="90">1.5 hours</option>
+                    <option value="120">2 hours</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t border-[var(--border)] flex gap-2 justify-end bg-[var(--bg-elevated)]">
+              <button 
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveNewEvent}
+                disabled={isSaving || !addTitle.trim()}
+                className="px-4 py-2 text-xs font-medium bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                {isSaving ? "Saving..." : "Add to Google Calendar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && blockToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in backdrop-blur-sm">
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl w-full max-w-sm overflow-hidden shadow-2xl animate-slide-up">
+            <div className="p-4 border-b border-[var(--border)] bg-[var(--bg-elevated)] flex justify-between items-center">
+              <h3 className="font-semibold text-sm text-[var(--color-danger)]">Confirm Deletion</h3>
+              <button onClick={() => setIsDeleteModalOpen(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
+            </div>
+            <div className="p-4">
+              <p className="text-sm text-[var(--text-primary)]">
+                Are you sure you want to delete <strong>{blockToDelete.title}</strong>?
+              </p>
+              {blockToDelete.type === "calendar" && (
+                <p className="text-xs text-[var(--text-muted)] mt-2">
+                  This is a physical event and will be permanently deleted from your Google Calendar.
+                </p>
+              )}
+              {blockToDelete.type === "ai-suggested" && (
+                <p className="text-xs text-[var(--text-muted)] mt-2">
+                  This task will be deleted from your Campus Life OS workspace.
+                </p>
+              )}
+            </div>
+            <div className="p-4 border-t border-[var(--border)] flex gap-2 justify-end bg-[var(--bg-elevated)]">
+              <button 
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleDeleteBlock}
+                disabled={isDeleting || blockToDelete.type === "personal" || blockToDelete.type === "academic"}
+                className="px-4 py-2 text-xs font-medium bg-[var(--color-danger)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                {blockToDelete.type === "personal" || blockToDelete.type === "academic" ? "Cannot Delete Routine" : "Delete Permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

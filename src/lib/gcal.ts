@@ -90,3 +90,45 @@ export async function fetchCalendarEvents(accessToken: string) {
     return [];
   }
 }
+
+export async function addCalendarEvent(accessToken: string, title: string, startTime: string, endTime: string): Promise<string | null> {
+  try {
+    const event = {
+      summary: title,
+      start: { dateTime: new Date(startTime).toISOString() },
+      end: { dateTime: new Date(endTime).toISOString() },
+    };
+
+    const response = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(event),
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.id;
+  } catch (error) {
+    console.error("[GCal] Exception while adding calendar event:", error);
+    return null;
+  }
+}
+
+export async function deleteCalendarEvent(accessToken: string, eventId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error("[GCal] Exception while deleting calendar event:", error);
+    return false;
+  }
+}
