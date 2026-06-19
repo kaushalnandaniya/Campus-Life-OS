@@ -57,7 +57,9 @@ export async function POST(req: NextRequest) {
       }
 
       // Fetch all events
-      const timeMin = new Date().toISOString();
+      const minDate = new Date();
+      minDate.setDate(minDate.getDate() - 30); // look 30 days back to clean up history
+      const timeMin = minDate.toISOString();
       const maxDate = new Date();
       maxDate.setDate(maxDate.getDate() + 60); // same range as fetchCalendarEvents
       const timeMax = maxDate.toISOString();
@@ -82,7 +84,14 @@ export async function POST(req: NextRequest) {
 
       // Delete events created by Campus OS
       for (const event of events) {
-        if (event.summary && event.summary.startsWith("[Campus OS]")) {
+        const isCampusOsEvent = event.summary && (
+          event.summary.startsWith("[Campus OS]") || 
+          event.summary.startsWith("Study: ") ||
+          event.summary.startsWith("Work on ") ||
+          event.summary.startsWith("Review: ")
+        );
+
+        if (isCampusOsEvent || (event.description && event.description.includes("Task Type:"))) {
           const deleteResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.id}`, {
             method: "DELETE",
             headers: {

@@ -94,7 +94,7 @@ export async function fetchCalendarEvents(accessToken: string) {
 export async function addCalendarEvent(accessToken: string, title: string, startTime: string, endTime: string): Promise<string | null> {
   try {
     const event = {
-      summary: title,
+      summary: title.startsWith("[Campus OS]") ? title : `[Campus OS] ${title}`,
       start: { dateTime: new Date(startTime).toISOString() },
       end: { dateTime: new Date(endTime).toISOString() },
     };
