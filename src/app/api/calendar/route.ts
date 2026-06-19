@@ -84,15 +84,19 @@ export async function GET(req: NextRequest) {
       const events = await fetchCalendarEvents(accessToken);
       
       // Map the events to a standard format and tag them with the source account
-      const mappedEvents = events.map((e: any) => ({
-        id: e.id,
-        title: e.summary,
-        description: e.description || "",
-        startTime: e.start.dateTime || e.start.date, // Google Calendar returns date for all-day events
-        endTime: e.end.dateTime || e.end.date,
-        sourceAccount: account.account_email,
-        link: e.htmlLink
-      }));
+      // We explicitly FILTER OUT any events that have "CampusOS-Activity-ID:" in the description, 
+      // because those are our synced Activities and they shouldn't clutter the main Upcoming Schedule.
+      const mappedEvents = events
+        .filter((e: any) => !(e.description && e.description.includes("CampusOS-Activity-ID:")))
+        .map((e: any) => ({
+          id: e.id,
+          title: e.summary,
+          description: e.description || "",
+          startTime: e.start.dateTime || e.start.date, // Google Calendar returns date for all-day events
+          endTime: e.end.dateTime || e.end.date,
+          sourceAccount: account.account_email,
+          link: e.htmlLink
+        }));
 
       allEvents.push(...mappedEvents);
     }
