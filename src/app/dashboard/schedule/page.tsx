@@ -255,7 +255,57 @@ export default function SchedulePage() {
 
   const scheduleMap = generateSmartScheduleRange(startDate, endDate, baselineRoutine, calendarEvents, tasks);
 
-  const renderEventBlock = (block: ScheduleBlock) => {
+  const computeLayout = (dayBlocks: ScheduleBlock[]) => {
+    const sorted = [...dayBlocks].sort((a, b) => a.startMins - b.startMins);
+    const clusters: ScheduleBlock[][] = [];
+    let currentCluster: ScheduleBlock[] = [];
+    let clusterEnd = 0;
+    
+    for (const block of sorted) {
+      if (currentCluster.length === 0) {
+        currentCluster.push(block);
+        clusterEnd = block.endMins;
+      } else if (block.startMins < clusterEnd) {
+        currentCluster.push(block);
+        clusterEnd = Math.max(clusterEnd, block.endMins);
+      } else {
+        clusters.push(currentCluster);
+        currentCluster = [block];
+        clusterEnd = block.endMins;
+      }
+    }
+    if (currentCluster.length > 0) clusters.push(currentCluster);
+    
+    const layout: Record<string, { left: number, width: number }> = {};
+    for (const cluster of clusters) {
+      const columns: ScheduleBlock[][] = [];
+      for (const block of cluster) {
+        let placed = false;
+        for (const col of columns) {
+          const last = col[col.length - 1];
+          if (last.endMins <= block.startMins) {
+            col.push(block);
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) columns.push([block]);
+      }
+      
+      const numCols = columns.length;
+      for (let i = 0; i < numCols; i++) {
+        for (const block of columns[i]) {
+          layout[block.id] = {
+            left: (i / numCols) * 100,
+            width: (1 / numCols) * 100
+          };
+        }
+      }
+    }
+    return layout;
+  };
+
+  const renderEventBlock = (block: ScheduleBlock, layoutInfo?: { left: number, width: number }) => {
     const top = (block.startMins - HOURS_START * 60) * PIXELS_PER_MINUTE;
     const height = (block.endMins - block.startMins) * PIXELS_PER_MINUTE;
 
@@ -273,12 +323,19 @@ export default function SchedulePage() {
       accentColor = "var(--color-info)";
     }
 
+    const style: React.CSSProperties = {
+      top: `${top}px`,
+      height: `${Math.max(height, 20)}px`,
+      left: layoutInfo ? `calc(${layoutInfo.left}% + 4px)` : '4px',
+      width: layoutInfo ? `calc(${layoutInfo.width}% - 8px)` : 'calc(100% - 8px)'
+    };
+
     return (
       <div
         key={block.id}
         onClick={(e) => handleBlockClick(block, e)}
-        className={`absolute left-1 right-1 rounded-md border p-1.5 overflow-hidden shadow-sm transition-all hover:z-10 hover:shadow-md cursor-pointer ${bgClass}`}
-        style={{ top: `${top}px`, height: `${Math.max(height, 20)}px` }}
+        className={`absolute rounded-md border p-1.5 overflow-hidden shadow-sm transition-all hover:z-10 hover:shadow-md cursor-pointer ${bgClass}`}
+        style={style}
       >
         <div className="flex items-start gap-1">
           <div className="mt-0.5" style={{ color: accentColor }}>{block.icon}</div>
@@ -297,6 +354,7 @@ export default function SchedulePage() {
 
   const renderDailyView = () => {
     const blocks = scheduleMap[currentDate.toDateString()] || [];
+    const layout = computeLayout(blocks);
     return (
       <div className="glass-card flex animate-fade-in overflow-hidden border border-[var(--border)]">
         <div className="bg-[var(--bg-elevated)] border-r border-[var(--border)] pt-4">
@@ -310,7 +368,7 @@ export default function SchedulePage() {
           {Array.from({ length: HOURS_END - HOURS_START + 1 }).map((_, i) => (
              <div key={i} className="absolute left-0 right-0 border-t border-[var(--border)] opacity-30 pointer-events-none" style={{ top: `${i * 60 * PIXELS_PER_MINUTE}px` }} />
           ))}
-          {blocks.map(renderEventBlock)}
+          {blocks.map(b => renderEventBlock(b, layout[b.id]))}
         </div>
       </div>
     );
@@ -348,7 +406,7 @@ export default function SchedulePage() {
                   {Array.from({ length: HOURS_END - HOURS_START + 1 }).map((_, idx) => (
                     <div key={idx} className="absolute left-0 right-0 border-t border-[var(--border)] opacity-20 pointer-events-none" style={{ top: `${idx * 60 * PIXELS_PER_MINUTE}px` }} />
                   ))}
-                  {blocks.map(renderEventBlock)}
+                  {blocks.map(b => renderEventBlock(b, computeLayout(blocks)[b.id]))}
                 </div>
               </div>
             );
