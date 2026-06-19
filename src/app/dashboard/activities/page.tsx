@@ -14,6 +14,7 @@ export default function ActivitiesPage() {
   const [activities, setActivities] = useState<PersonalActivity[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [newActivity, setNewActivity] = useState({
     title: "",
     emoji: "🏋️",
@@ -99,7 +100,27 @@ export default function ActivitiesPage() {
           })
           .eq("id", editingId);
 
-        if (error) console.error("Error updating activity:", error);
+        if (error) {
+          console.error("Error updating activity:", error);
+        } else {
+          // Sync to GCal (it handles deletion of the old one via ID)
+          setIsSyncing(true);
+          try {
+            await fetch("/api/calendar/activity", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: editingId,
+                title: newActivity.title,
+                type: newActivity.emoji,
+                daysOfWeek: newActivity.daysOfWeek,
+                startTime: newActivity.startTime,
+                endTime: newActivity.endTime
+              })
+            });
+          } catch(e) {}
+          setIsSyncing(false);
+        }
       }
     } else {
       // Insert logic
@@ -135,6 +156,24 @@ export default function ActivitiesPage() {
         setActivities((prev) =>
           prev.map((a) => (a.id === tempId ? { ...a, id: data[0].id } : a))
         );
+        
+        // Sync to GCal
+        setIsSyncing(true);
+        try {
+          await fetch("/api/calendar/activity", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: data[0].id,
+              title: newActivity.title,
+              type: newActivity.emoji,
+              daysOfWeek: newActivity.daysOfWeek,
+              startTime: newActivity.startTime,
+              endTime: newActivity.endTime
+            })
+          });
+        } catch(e) {}
+        setIsSyncing(false);
       }
     }
   };
@@ -153,11 +192,15 @@ export default function ActivitiesPage() {
   };
 
   const deleteActivity = async (id: string) => {
-    setActivities((prev) => prev.filter((a) => a.id !== id));
+    setActivities(activities.filter((a) => a.id !== id));
 
-    if (session?.user?.email && !id.toString().startsWith("demo-") && !id.toString().startsWith("temp-")) {
-      const { error } = await supabase.from("activities").delete().eq("id", id);
-      if (error) console.error("Error deleting activity:", error);
+    if (!id.startsWith("temp-") && !id.startsWith("demo-")) {
+      setIsSyncing(true);
+      await supabase.from("activities").delete().eq("id", id);
+      try {
+        await fetch(`/api/calendar/activity?id=${id}`, { method: "DELETE" });
+      } catch (e) {}
+      setIsSyncing(false);
     }
   };
 
@@ -254,9 +297,13 @@ export default function ActivitiesPage() {
           </div>
 
           <div className="mt-4 flex gap-2">
-            <button onClick={addActivity} className="btn-primary">
-              {editingId ? "Save Changes" : "Add"}
-            </button>
+            <button
+                onClick={addActivity}
+                disabled={isSyncing}
+                className="btn-primary w-full sm:w-auto"
+              >
+                {isSyncing ? "Syncing to GCal..." : (editingId ? "Update Activity" : "Save Activity")}
+              </button>
             <button onClick={() => {
               setShowForm(false);
               setEditingId(null);
