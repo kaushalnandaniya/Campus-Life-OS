@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import { demoActivities, type PersonalActivity } from "@/lib/demo-data";
-import { Dumbbell, Plus, Trash2, Clock, Calendar } from "lucide-react";
+import { Dumbbell, Plus, Trash2, Edit2, Clock, Calendar } from "lucide-react";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const emojis = ["🏋️", "🏀", "⚽", "🏊", "🎵", "📖", "😴", "🧘", "💻", "🎮", "🍳", "🏃"];
@@ -13,6 +13,7 @@ export default function ActivitiesPage() {
   const { data: session } = useSession();
   const [activities, setActivities] = useState<PersonalActivity[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newActivity, setNewActivity] = useState({
     title: "",
     emoji: "🏋️",
@@ -66,22 +67,56 @@ export default function ActivitiesPage() {
   const addActivity = async () => {
     if (!newActivity.title || newActivity.daysOfWeek.length === 0) return;
 
-    const tempId = `temp-${Date.now()}`;
-    const activity: PersonalActivity = { id: tempId, ...newActivity };
-    setActivities([...activities, activity]);
-
-    setNewActivity({
-      title: "",
-      emoji: "🏋️",
-      daysOfWeek: [],
-      startTime: "06:00",
-      endTime: "07:00",
-      isFlexible: true,
-    });
-    setShowForm(false);
-
     const userEmail = session?.user?.email;
-    if (userEmail) {
+    if (!userEmail) return;
+
+    if (editingId) {
+      // Update logic
+      setActivities((prev) =>
+        prev.map((a) => (a.id === editingId ? { ...a, ...newActivity } : a))
+      );
+
+      setShowForm(false);
+      setEditingId(null);
+      setNewActivity({
+        title: "",
+        emoji: "🏋️",
+        daysOfWeek: [],
+        startTime: "06:00",
+        endTime: "07:00",
+        isFlexible: true,
+      });
+
+      if (!editingId.startsWith("temp-") && !editingId.startsWith("demo-")) {
+        const { error } = await supabase
+          .from("activities")
+          .update({
+            title: newActivity.title,
+            type: newActivity.emoji,
+            days_of_week: newActivity.daysOfWeek,
+            start_time: newActivity.startTime,
+            end_time: newActivity.endTime,
+          })
+          .eq("id", editingId);
+
+        if (error) console.error("Error updating activity:", error);
+      }
+    } else {
+      // Insert logic
+      const tempId = `temp-${Date.now()}`;
+      const activity: PersonalActivity = { id: tempId, ...newActivity };
+      setActivities([...activities, activity]);
+
+      setNewActivity({
+        title: "",
+        emoji: "🏋️",
+        daysOfWeek: [],
+        startTime: "06:00",
+        endTime: "07:00",
+        isFlexible: true,
+      });
+      setShowForm(false);
+
       const { data, error } = await supabase
         .from("activities")
         .insert({
@@ -102,6 +137,19 @@ export default function ActivitiesPage() {
         );
       }
     }
+  };
+
+  const handleEditClick = (activity: PersonalActivity) => {
+    setNewActivity({
+      title: activity.title,
+      emoji: activity.emoji,
+      daysOfWeek: activity.daysOfWeek,
+      startTime: activity.startTime,
+      endTime: activity.endTime,
+      isFlexible: activity.isFlexible,
+    });
+    setEditingId(activity.id);
+    setShowForm(true);
   };
 
   const deleteActivity = async (id: string) => {
@@ -138,7 +186,7 @@ export default function ActivitiesPage() {
       {showForm && (
         <div className="glass-card p-5 animate-fade-in">
           <h3 className="text-xs font-medium text-[var(--text-muted)] mb-3 uppercase tracking-wide">
-            New Activity
+            {editingId ? "Edit Activity" : "New Activity"}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -206,8 +254,21 @@ export default function ActivitiesPage() {
           </div>
 
           <div className="mt-4 flex gap-2">
-            <button onClick={addActivity} className="btn-primary">Add</button>
-            <button onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
+            <button onClick={addActivity} className="btn-primary">
+              {editingId ? "Save Changes" : "Add"}
+            </button>
+            <button onClick={() => {
+              setShowForm(false);
+              setEditingId(null);
+              setNewActivity({
+                title: "",
+                emoji: "🏋️",
+                daysOfWeek: [],
+                startTime: "06:00",
+                endTime: "07:00",
+                isFlexible: true,
+              });
+            }} className="btn-secondary">Cancel</button>
           </div>
         </div>
       )}
@@ -235,12 +296,20 @@ export default function ActivitiesPage() {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => deleteActivity(activity.id)}
-                className="text-[var(--text-muted)] hover:text-[var(--color-danger)] transition-colors p-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center">
+                <button
+                  onClick={() => handleEditClick(activity)}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1 mr-1"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => deleteActivity(activity.id)}
+                  className="text-[var(--text-muted)] hover:text-[var(--color-danger)] transition-colors p-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         ))}
