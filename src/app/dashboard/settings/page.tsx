@@ -391,7 +391,8 @@ export default function SettingsPage() {
                       if (res.ok) {
                         alert(`All tasks deleted! Also removed ${data.deletedCount} synced events from Google Calendar. You can now run a fresh sync.`);
                       } else {
-                        alert(`Tasks deleted, but failed to wipe Google Calendar: ${data.error}`);
+                        const details = data.details ? `\n\nDetails: ${data.details.join(", ")}` : "";
+                        alert(`Tasks deleted, but failed to wipe Google Calendar: ${data.error}${details}`);
                       }
                     } catch (e) {
                       alert("Tasks deleted, but error contacting Google Calendar wipe endpoint.");

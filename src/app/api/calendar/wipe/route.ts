@@ -82,6 +82,8 @@ export async function POST(req: NextRequest) {
       
       let deletedCount = 0;
 
+      let deleteErrors: string[] = [];
+
       // Delete events created by Campus OS
       for (const event of events) {
         const isCampusOsEvent = event.summary && (
@@ -92,19 +94,34 @@ export async function POST(req: NextRequest) {
         );
 
         if (isCampusOsEvent || (event.description && event.description.includes("Task Type:"))) {
-          const deleteResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.id}`, {
-            method: "DELETE",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          });
-          
-          if (deleteResponse.ok) {
-            deletedCount++;
+          try {
+            const deleteResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.id}`, {
+              method: "DELETE",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            });
+            
+            if (deleteResponse.ok) {
+              deletedCount++;
+            } else {
+              const errText = await deleteResponse.text();
+              deleteErrors.push(`Failed to delete ${event.id}: ${deleteResponse.status} ${errText}`);
+            }
+          } catch (e: any) {
+            deleteErrors.push(`Network error deleting ${event.id}: ${e.message}`);
           }
         }
       }
       totalDeletedCount += deletedCount;
+      
+      if (deleteErrors.length > 0) {
+        return NextResponse.json({ 
+          success: false, 
+          error: "Some events failed to delete", 
+          details: deleteErrors 
+        }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ success: true, deletedCount: totalDeletedCount });

@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
         const sourceAccount = accounts.find((a: any) => a.email === sourceEmail) || accounts[0];
         
         let gcal_event_ids: string[] = [];
-        if (t.deadline && t.deadline !== "null") {
+        if (t.deadline && t.deadline !== "null" && t.taskType !== "notice" && t.taskType !== "announcement") {
           for (const account of accounts) {
             const id = await pushTaskToCalendar(account.accessToken, t);
             if (id) gcal_event_ids.push(id);
