@@ -135,11 +135,9 @@ export async function POST(req: NextRequest) {
         let gcal_event_ids: string[] = [];
         // Only push to Google Calendar if it has a deadline AND is not a notice/announcement
         if (taskDeadline && taskDeadline !== "null" && t.taskType !== "notice" && t.taskType !== "announcement") {
-          for (const account of accounts) {
-            // We pass the resolved taskDeadline into pushTaskToCalendar by creating a temp object
-            const id = await pushTaskToCalendar(account.accessToken, { ...t, deadline: taskDeadline });
-            if (id) gcal_event_ids.push(id);
-          }
+          // Push strictly to the calendar of the account that received the email, NOT all accounts
+          const id = await pushTaskToCalendar(sourceAccount.accessToken, { ...t, deadline: taskDeadline });
+          if (id) gcal_event_ids.push(id);
         }
 
         dbTasks.push({

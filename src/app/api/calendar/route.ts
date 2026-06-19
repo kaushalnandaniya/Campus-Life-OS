@@ -104,7 +104,12 @@ export async function GET(req: NextRequest) {
     // Sort by start time
     allEvents.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
-    return NextResponse.json({ events: allEvents });
+    // Deduplicate identical events that might exist across multiple connected accounts
+    const uniqueEvents = allEvents.filter((event, index, self) => 
+      index === self.findIndex((e) => e.title === event.title && e.startTime === event.startTime)
+    );
+
+    return NextResponse.json({ events: uniqueEvents });
   } catch (error: any) {
     console.error("[Calendar API] Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
