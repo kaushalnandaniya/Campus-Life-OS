@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
       subject: e.subject,
       from: e.from,
       body: e.body,
+      date: e.date,
       _sourceAccount: e._sourceAccount,
     }));
     
@@ -119,10 +120,24 @@ export async function POST(req: NextRequest) {
         // Find the access token for this source email
         const sourceAccount = accounts.find((a: any) => a.email === sourceEmail) || accounts[0];
         
+        let taskDeadline = t.deadline;
+        if (!taskDeadline || taskDeadline === "null") {
+          if (originalEmail && originalEmail.date) {
+            // Attempt to parse the email's Date header string
+            try {
+              taskDeadline = new Date(originalEmail.date).toISOString();
+            } catch (e) {
+              taskDeadline = null;
+            }
+          }
+        }
+
         let gcal_event_ids: string[] = [];
-        if (t.deadline && t.deadline !== "null" && t.taskType !== "notice" && t.taskType !== "announcement") {
+        // Only push to Google Calendar if it has a deadline AND is not a notice/announcement
+        if (taskDeadline && taskDeadline !== "null" && t.taskType !== "notice" && t.taskType !== "announcement") {
           for (const account of accounts) {
-            const id = await pushTaskToCalendar(account.accessToken, t);
+            // We pass the resolved taskDeadline into pushTaskToCalendar by creating a temp object
+            const id = await pushTaskToCalendar(account.accessToken, { ...t, deadline: taskDeadline });
             if (id) gcal_event_ids.push(id);
           }
         }
@@ -133,7 +148,7 @@ export async function POST(req: NextRequest) {
           description: t.description,
           subject_course: t.subjectCourse,
           task_type: t.taskType,
-          deadline: t.deadline && t.deadline !== "null" ? new Date(t.deadline).toISOString() : null,
+          deadline: taskDeadline && taskDeadline !== "null" ? new Date(taskDeadline).toISOString() : null,
           estimated_effort_hours: t.estimatedEffortHours,
           priority: t.priority,
           status: t.status,
