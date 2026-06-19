@@ -20,6 +20,7 @@ const EXTRACTION_PROMPT = `Extract BOTH actionable items (tasks, events) AND non
 }]
 Priority: critical(<24h), high(<3d), medium(<1w), low(other).
 Note: For non-actionable informational emails (like mutual fund executions, receipts, or simple updates), use taskType "notice", estimatedEffortHours 0, and priority "low".
+CRITICAL RULES FOR DEADLINE: ONLY extract a deadline if a specific date or time is explicitly mentioned in the text. NEVER guess, assume, or hallucinate a deadline. If no strict date is mentioned, you MUST set deadline to null.
 Return ONLY the JSON array (no markdown). Empty array [] if no items.`;
 
 interface GeminiExtractedTask {

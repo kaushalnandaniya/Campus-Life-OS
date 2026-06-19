@@ -64,55 +64,59 @@ export async function POST(req: NextRequest) {
       maxDate.setDate(maxDate.getDate() + 60); // same range as fetchCalendarEvents
       const timeMax = maxDate.toISOString();
 
-      const response = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        continue;
-      }
-
-      const data = await response.json();
-      const events = data.items || [];
-      
-      let deletedCount = 0;
-
       let deleteErrors: string[] = [];
-
-      // Delete events created by Campus OS
-      for (const event of events) {
-        const isCampusOsEvent = event.summary && (
-          event.summary.startsWith("[Campus OS]") || 
-          event.summary.startsWith("Study: ") ||
-          event.summary.startsWith("Work on ") ||
-          event.summary.startsWith("Review: ")
+      let pageToken = "";
+      
+      do {
+        const pageQuery = pageToken ? `&pageToken=${pageToken}` : "";
+        const response = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&maxResults=250${pageQuery}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
         );
 
-        if (isCampusOsEvent || (event.description && event.description.includes("Task Type:"))) {
-          try {
-            const deleteResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.id}`, {
-              method: "DELETE",
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-            });
-            
-            if (deleteResponse.ok) {
-              deletedCount++;
-            } else {
-              const errText = await deleteResponse.text();
-              deleteErrors.push(`Failed to delete ${event.id}: ${deleteResponse.status} ${errText}`);
+        if (!response.ok) {
+          break;
+        }
+
+        const data = await response.json();
+        const events = data.items || [];
+        pageToken = data.nextPageToken || "";
+        
+        // Delete events created by Campus OS
+        for (const event of events) {
+          const isCampusOsEvent = event.summary && (
+            event.summary.startsWith("[Campus OS]") || 
+            event.summary.startsWith("Study: ") ||
+            event.summary.startsWith("Work on ") ||
+            event.summary.startsWith("Review: ")
+          );
+
+          if (isCampusOsEvent || (event.description && event.description.includes("Task Type:"))) {
+            try {
+              const deleteResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.id}`, {
+                method: "DELETE",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              });
+              
+              if (deleteResponse.ok) {
+                deletedCount++;
+              } else {
+                const errText = await deleteResponse.text();
+                deleteErrors.push(`Failed to delete ${event.id}: ${deleteResponse.status} ${errText}`);
+              }
+            } catch (e: any) {
+              deleteErrors.push(`Network error deleting ${event.id}: ${e.message}`);
             }
-          } catch (e: any) {
-            deleteErrors.push(`Network error deleting ${event.id}: ${e.message}`);
           }
         }
-      }
+      } while (pageToken);
+      
       totalDeletedCount += deletedCount;
       
       if (deleteErrors.length > 0) {
