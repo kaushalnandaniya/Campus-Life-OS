@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
 
       let deleteErrors: string[] = [];
       let pageToken = "";
+      let deletedCount = 0;
       
       do {
         const pageQuery = pageToken ? `&pageToken=${pageToken}` : "";
