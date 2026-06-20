@@ -102,6 +102,11 @@ export async function POST(req: NextRequest) {
       console.log(`[Sync] Processing chunk ${i / CHUNK_SIZE + 1} of ${Math.ceil(mappedEmails.length / CHUNK_SIZE)} (${chunk.length} emails)`);
       const chunkTasks = await extractTasksFromEmails(chunk);
       extractedTasks.push(...chunkTasks);
+      
+      // Intentional delay to prevent hitting Gemini API 15 RPM Free Tier Limit
+      if (i + CHUNK_SIZE < mappedEmails.length) {
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+      }
     }
     
     console.log(`[Sync] Extracted a total of ${extractedTasks.length} tasks across all chunks`);
