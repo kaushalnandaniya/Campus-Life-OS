@@ -34,9 +34,10 @@ export default function DashboardPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
   const [displayName, setDisplayName] = useState<string>("");
 
-  const workloadData = getWorkloadData(tasks, calendarEvents);
+  const workloadData = getWorkloadData(tasks, calendarEvents, activities);
   const burnout = calculateBurnoutScore(tasks);
 
   // Load tasks from Supabase on mount
@@ -120,8 +121,20 @@ export default function DashboardPage() {
       }
     };
 
+    const fetchActivities = async () => {
+      const { data, error } = await supabase
+        .from("activities")
+        .select("*")
+        .eq("user_email", userEmail);
+
+      if (!error && data) {
+        setActivities(data);
+      }
+    };
+
     fetchTasks();
     fetchCalendar();
+    fetchActivities();
   }, [session]);
 
 
