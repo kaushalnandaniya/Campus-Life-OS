@@ -119,9 +119,6 @@ export default function LandingPage() {
                 Sign in with Google
               </button>
             )}
-            <Link href="/dashboard" className="btn-secondary px-6 py-2.5">
-              View Demo
-            </Link>
           </div>
 
           {/* Stats */}
