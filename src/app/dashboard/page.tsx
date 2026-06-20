@@ -52,7 +52,7 @@ export default function DashboardPage() {
         if (profile.displayName) {
           setDisplayName(profile.displayName);
         }
-        if (!profile.hasCompletedOnboarding) {
+        if (profile.hasCompletedOnboarding === false) {
           setShowOnboarding(true);
         }
       } else {
