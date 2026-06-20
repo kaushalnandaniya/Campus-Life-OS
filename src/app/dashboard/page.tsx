@@ -14,6 +14,7 @@ import TaskCard from "@/components/TaskCard";
 import BurnoutMeter from "@/components/BurnoutMeter";
 import WorkloadChart from "@/components/WorkloadChart";
 import ConflictBanner from "@/components/ConflictBanner";
+import OnboardingModal from "@/components/OnboardingModal";
 import {
   RefreshCw,
   CheckCircle2,
@@ -36,6 +37,7 @@ export default function DashboardPage() {
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [displayName, setDisplayName] = useState<string>("");
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const workloadData = getWorkloadData(tasks, calendarEvents, activities);
   const burnout = calculateBurnoutScore(tasks);
@@ -50,8 +52,16 @@ export default function DashboardPage() {
         if (profile.displayName) {
           setDisplayName(profile.displayName);
         }
+        if (!profile.hasCompletedOnboarding) {
+          setShowOnboarding(true);
+        }
+      } else {
+        // No profile exists, show onboarding
+        setShowOnboarding(true);
       }
-    } catch (e) {}
+    } catch (e) {
+      setShowOnboarding(true);
+    }
 
     const userEmail = session?.user?.email;
     if (!userEmail) return;
@@ -358,7 +368,21 @@ export default function DashboardPage() {
   const userName = displayName || session?.user?.name?.split(" ")[0] || "Student";
 
   return (
-    <div className="space-y-5">
+    <>
+      {showOnboarding && (
+        <OnboardingModal onComplete={() => {
+          setShowOnboarding(false);
+          // Reload profile immediately to get the updated name without refreshing
+          try {
+            const raw = localStorage.getItem("campus-life-os-profile");
+            if (raw) {
+              const profile = JSON.parse(raw);
+              if (profile.displayName) setDisplayName(profile.displayName);
+            }
+          } catch(e) {}
+        }} />
+      )}
+      <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between animate-fade-in-up">
         <div>
@@ -591,5 +615,6 @@ export default function DashboardPage() {
 
       </div>
     </div>
+    </>
   );
 }
