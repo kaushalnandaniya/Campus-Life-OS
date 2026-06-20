@@ -24,7 +24,7 @@ const features = [
     icon: Brain,
     title: "AI Task Extraction",
     description:
-      "Gemini AI parses every email to extract deadlines, subjects, and priorities.",
+      "AI parses every email to extract deadlines, subjects, and priorities.",
   },
   {
     icon: CalendarCheck,
@@ -99,7 +99,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-base md:text-lg text-[var(--text-secondary)] max-w-xl mx-auto mb-8 leading-relaxed animate-fade-in-up stagger-2">
-            Campus Life OS reads your DAU emails, predicts your workload, and balances your academics with your personal life using Gemini AI.
+            Campus Life OS reads your DAU emails, predicts your workload, and balances your academics with your personal life using AI.
           </p>
 
           <div className="flex items-center justify-center gap-3 animate-fade-in-up stagger-3">
