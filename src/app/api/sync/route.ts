@@ -145,13 +145,21 @@ export async function POST(req: NextRequest) {
           if (id) gcal_event_ids.push(id);
         }
 
+        let parsedDeadline = null;
+        if (taskDeadline && taskDeadline !== "null") {
+          const d = new Date(taskDeadline);
+          if (!isNaN(d.getTime())) {
+            parsedDeadline = d.toISOString();
+          }
+        }
+
         dbTasks.push({
           user_email: userEmail,
           title: t.title,
           description: t.description,
           subject_course: t.subjectCourse,
           task_type: t.taskType,
-          deadline: taskDeadline && taskDeadline !== "null" ? new Date(taskDeadline).toISOString() : null,
+          deadline: parsedDeadline,
           estimated_effort_hours: t.estimatedEffortHours,
           priority: t.priority,
           status: t.status,
