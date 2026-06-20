@@ -13,6 +13,12 @@ export async function pushTaskToCalendar(accessToken: string, task: any): Promis
   try {
     const deadlineDate = new Date(task.deadline);
     
+    // Check if the AI returned a valid date string
+    if (isNaN(deadlineDate.getTime())) {
+      console.warn(`[GCal] Skipping calendar push for task "${task.title}" because deadline format is invalid: "${task.deadline}"`);
+      return null;
+    }
+
     // Create an event that starts 1 hour before the deadline, and ends at the deadline
     const startDate = new Date(deadlineDate.getTime() - 60 * 60 * 1000);
 
