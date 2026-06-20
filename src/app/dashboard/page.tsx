@@ -128,7 +128,14 @@ export default function DashboardPage() {
         .eq("user_email", userEmail);
 
       if (!error && data) {
-        setActivities(data);
+        setActivities(data.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          type: "personal",
+          daysOfWeek: a.days_of_week || [],
+          startTime: a.start_time,
+          endTime: a.end_time,
+        })));
       }
     };
 
