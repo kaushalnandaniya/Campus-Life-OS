@@ -394,88 +394,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Tasks */}
-        <div className="lg:col-span-2 space-y-3">
-          {/* Filters */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              {filters.map((f) => (
-                <button
-                  key={f.value}
-                  onClick={() => setFilter(f.value)}
-                  className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
-                    filter === f.value
-                      ? "bg-[var(--accent-dim)] text-[var(--accent)] font-medium"
-                      : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            <span className="text-[11px] text-[var(--text-muted)]">
-              {sortedTasks.length} tasks
-            </span>
-          </div>
-
-          {/* Task List */}
-          <div className="space-y-2">
-            {sortedTasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onToggleStatus={toggleStatus}
-              />
-            ))}
-            {sortedTasks.length === 0 && (
-              <div className="text-center py-12 text-[var(--text-muted)]">
-                <Inbox className="w-10 h-10 mx-auto mb-2 opacity-25" />
-                <p className="text-sm">No tasks found</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Panel */}
-        <div className="space-y-4">
-          {/* Notice Feed */}
-          <div className="glass-card p-5 animate-fade-in-up stagger-1 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-[var(--color-info)]" />
-                <h2 className="text-sm font-medium text-[var(--text-primary)]">
-                  Notices & Updates
-                </h2>
-              </div>
-              <span className="badge badge-low">{filteredNotices.length}</span>
-            </div>
-            
-            {filteredNotices.length === 0 ? (
-              <div className="text-center py-6 text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded-md">
-                <p className="text-xs">No recent notices found</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredNotices.map((notice) => (
-                  <div key={notice.id} className="p-3 rounded-md bg-[var(--bg-surface)] border border-[var(--border)]">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="text-[13px] font-medium text-[var(--text-primary)]">{notice.title}</h3>
-                      <span className="text-[10px] text-[var(--text-muted)]">
-                        {notice.createdAt ? new Date(notice.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Recent"}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">{notice.description}</p>
-                    <div className="mt-2 text-[10px] text-[var(--accent)] font-medium">
-                      Source: {notice.source}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Calendar Events Widget */}
+      <div className="space-y-6">
+        
+        {/* Row 1: Schedule and Notices */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+{/* Calendar Events Widget */}
           {calendarEvents.length > 0 && (
             <div className="glass-card p-5 animate-fade-in-up stagger-1 mb-6">
               <div className="flex items-center justify-between mb-4">
@@ -520,7 +443,97 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* AI Burnout Predictor */}
+          
+{/* Notice Feed */}
+          <div className="glass-card p-5 animate-fade-in-up stagger-1 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-[var(--color-info)]" />
+                <h2 className="text-sm font-medium text-[var(--text-primary)]">
+                  Notices & Updates
+                </h2>
+              </div>
+              <span className="badge badge-low">{filteredNotices.length}</span>
+            </div>
+            
+            {filteredNotices.length === 0 ? (
+              <div className="text-center py-6 text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded-md">
+                <p className="text-xs">No recent notices found</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredNotices.map((notice) => (
+                  <div key={notice.id} className="p-3 rounded-md bg-[var(--bg-surface)] border border-[var(--border)]">
+                    <div className="flex justify-between items-start mb-1">
+                      <h3 className="text-[13px] font-medium text-[var(--text-primary)]">{notice.title}</h3>
+                      <span className="text-[10px] text-[var(--text-muted)]">
+                        {notice.createdAt ? new Date(notice.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Recent"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">{notice.description}</p>
+                    <div className="mt-2 text-[10px] text-[var(--accent)] font-medium">
+                      Source: {notice.source}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+                  </div>
+
+        {/* Row 2: Tasks */}
+        <div className="glass-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-sm font-medium text-[var(--text-primary)]">My Tasks</h2>
+          </div>
+{/* Tasks */}
+        <div className="space-y-3">
+          {/* Filters */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              {filters.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setFilter(f.value)}
+                  className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
+                    filter === f.value
+                      ? "bg-[var(--accent-dim)] text-[var(--accent)] font-medium"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-[11px] text-[var(--text-muted)]">
+              {sortedTasks.length} tasks
+            </span>
+          </div>
+
+          {/* Task List */}
+          <div className="space-y-2">
+            {sortedTasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onToggleStatus={toggleStatus}
+              />
+            ))}
+            {sortedTasks.length === 0 && (
+              <div className="text-center py-12 text-[var(--text-muted)]">
+                <Inbox className="w-10 h-10 mx-auto mb-2 opacity-25" />
+                <p className="text-sm">No tasks found</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+                </div>
+
+        {/* Row 3: Analytics */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+{/* AI Burnout Predictor */}
           <div className="glass-card p-5 animate-fade-in-up stagger-2">
             <h3 className="text-xs font-medium text-[var(--text-muted)] mb-4 uppercase tracking-wide">
               Burnout Risk
@@ -546,7 +559,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Workload */}
+          
+{/* Workload */}
           <div className="glass-card p-5 animate-fade-in-up stagger-3">
             <h3 className="text-xs font-medium text-[var(--text-muted)] mb-3 uppercase tracking-wide">
               Workload (14 Days)
@@ -554,6 +568,7 @@ export default function DashboardPage() {
             <WorkloadChart data={workloadData} />
           </div>
         </div>
+
       </div>
     </div>
   );
