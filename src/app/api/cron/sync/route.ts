@@ -125,6 +125,11 @@ export async function GET(req: NextRequest) {
         const chunk = mappedEmails.slice(i, i + CHUNK_SIZE);
         const chunkTasks = await extractTasksFromEmails(chunk);
         extractedTasks.push(...chunkTasks);
+        
+        // Intentional delay to prevent hitting Gemini API 15 RPM Free Tier Limit
+        if (i + CHUNK_SIZE < mappedEmails.length) {
+          await new Promise((resolve) => setTimeout(resolve, 2500));
+        }
       }
 
       console.log(`[Cron Sync] Extracted ${extractedTasks.length} tasks for ${account.account_email}.`);
