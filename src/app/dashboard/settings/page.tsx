@@ -405,6 +405,44 @@ export default function SettingsPage() {
               Wipe Tasks
             </button>
           </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-[var(--border)]">
+            <div>
+              <p className="text-[13px] text-[var(--text-primary)] text-[var(--color-danger)]">Delete Account</p>
+              <p className="text-[11px] text-[var(--text-muted)] max-w-[250px]">
+                Wipe all your data entirely (tasks, activities, tokens) and log out forever.
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                if (confirm("Are you ABSOLUTELY sure you want to delete your account? All tasks, activities, and synced Google tokens will be wiped. You will be logged out immediately.")) {
+                  const { supabase } = await import("@/lib/supabase");
+                  const userEmail = session?.user?.email;
+                  if (userEmail) {
+                    // Wipe everything tied to this email in Supabase
+                    await supabase.from("tasks").delete().eq("user_email", userEmail);
+                    await supabase.from("activities").delete().eq("user_email", userEmail);
+                    await supabase.from("connected_accounts").delete().eq("user_email", userEmail);
+                    
+                    // Best effort to clean up their Google Calendar events
+                    try {
+                      await fetch("/api/calendar/wipe", { method: "POST" });
+                    } catch (e) {}
+                  }
+
+                  // Clear local state
+                  localStorage.removeItem("campus-life-os-profile");
+                  localStorage.removeItem("campus-life-os-last-sync");
+
+                  // Log out and return to landing page
+                  signOut({ callbackUrl: "/" });
+                }
+              }}
+              className="btn-secondary text-white bg-[var(--color-danger)] border-none hover:opacity-90"
+            >
+              Delete Account
+            </button>
+          </div>
         </div>
       </div>
 
