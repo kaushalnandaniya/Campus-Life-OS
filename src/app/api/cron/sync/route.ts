@@ -144,6 +144,13 @@ export async function GET(req: NextRequest) {
            if (t.deadline && t.deadline !== "null") {
              gcal_event_id = await pushTaskToCalendar(accessToken, t);
            }
+           let parsedDeadline = null;
+           if (t.deadline && t.deadline !== "null") {
+             const d = new Date(t.deadline);
+             if (!isNaN(d.getTime())) {
+               parsedDeadline = d.toISOString();
+             }
+           }
            
            dbTasks.push({
              user_email: account.user_email, // Link task to the primary user dashboard
@@ -151,7 +158,7 @@ export async function GET(req: NextRequest) {
              description: t.description,
              subject_course: t.subjectCourse,
              task_type: t.taskType,
-             deadline: t.deadline && t.deadline !== "null" ? new Date(t.deadline).toISOString() : null,
+             deadline: parsedDeadline,
              estimated_effort_hours: t.estimatedEffortHours,
              priority: t.priority,
              status: t.status,
