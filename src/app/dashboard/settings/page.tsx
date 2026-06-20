@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { Mail, Bell, Shield, User, Plus, X, Save, Check } from "lucide-react";
 
 interface PersonalEmailAccount {
