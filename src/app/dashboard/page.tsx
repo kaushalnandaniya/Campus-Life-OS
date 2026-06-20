@@ -14,6 +14,7 @@ import TaskCard from "@/components/TaskCard";
 import BurnoutMeter from "@/components/BurnoutMeter";
 import WorkloadChart from "@/components/WorkloadChart";
 import ConflictBanner from "@/components/ConflictBanner";
+import OnboardingModal from "@/components/OnboardingModal";
 import {
   RefreshCw,
   CheckCircle2,
@@ -34,9 +35,11 @@ export default function DashboardPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
   const [displayName, setDisplayName] = useState<string>("");
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  const workloadData = getWorkloadData(tasks, calendarEvents);
+  const workloadData = getWorkloadData(tasks, calendarEvents, activities);
   const burnout = calculateBurnoutScore(tasks);
 
   // Load tasks from Supabase on mount
@@ -49,8 +52,16 @@ export default function DashboardPage() {
         if (profile.displayName) {
           setDisplayName(profile.displayName);
         }
+        if (profile.hasCompletedOnboarding === false) {
+          setShowOnboarding(true);
+        }
+      } else {
+        // No profile exists, show onboarding
+        setShowOnboarding(true);
       }
-    } catch (e) {}
+    } catch (e) {
+      setShowOnboarding(true);
+    }
 
     const userEmail = session?.user?.email;
     if (!userEmail) return;
@@ -120,8 +131,27 @@ export default function DashboardPage() {
       }
     };
 
+    const fetchActivities = async () => {
+      const { data, error } = await supabase
+        .from("activities")
+        .select("*")
+        .eq("user_email", userEmail);
+
+      if (!error && data) {
+        setActivities(data.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          type: "personal",
+          daysOfWeek: a.days_of_week || [],
+          startTime: a.start_time,
+          endTime: a.end_time,
+        })));
+      }
+    };
+
     fetchTasks();
     fetchCalendar();
+    fetchActivities();
   }, [session]);
 
 
@@ -338,7 +368,21 @@ export default function DashboardPage() {
   const userName = displayName || session?.user?.name?.split(" ")[0] || "Student";
 
   return (
-    <div className="space-y-5">
+    <>
+      {showOnboarding && (
+        <OnboardingModal onComplete={() => {
+          setShowOnboarding(false);
+          // Reload profile immediately to get the updated name without refreshing
+          try {
+            const raw = localStorage.getItem("campus-life-os-profile");
+            if (raw) {
+              const profile = JSON.parse(raw);
+              if (profile.displayName) setDisplayName(profile.displayName);
+            }
+          } catch(e) {}
+        }} />
+      )}
+      <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between animate-fade-in-up">
         <div>
@@ -394,9 +438,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Tasks */}
-        <div className="lg:col-span-2 space-y-3">
+      <div className="space-y-6">
+        
+        {/* Row 1: Tasks */}
+        <div className="glass-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-sm font-medium text-[var(--text-primary)]">My Tasks</h2>
+          </div>
+{/* Tasks */}
+        <div className="space-y-3">
           {/* Filters */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
@@ -420,7 +470,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Task List */}
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
             {sortedTasks.map((task) => (
               <TaskCard
                 key={task.id}
@@ -437,45 +487,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right Panel */}
-        <div className="space-y-4">
-          {/* Notice Feed */}
-          <div className="glass-card p-5 animate-fade-in-up stagger-1 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-[var(--color-info)]" />
-                <h2 className="text-sm font-medium text-[var(--text-primary)]">
-                  Notices & Updates
-                </h2>
-              </div>
-              <span className="badge badge-low">{filteredNotices.length}</span>
-            </div>
-            
-            {filteredNotices.length === 0 ? (
-              <div className="text-center py-6 text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded-md">
-                <p className="text-xs">No recent notices found</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredNotices.map((notice) => (
-                  <div key={notice.id} className="p-3 rounded-md bg-[var(--bg-surface)] border border-[var(--border)]">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="text-[13px] font-medium text-[var(--text-primary)]">{notice.title}</h3>
-                      <span className="text-[10px] text-[var(--text-muted)]">
-                        {notice.createdAt ? new Date(notice.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Recent"}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">{notice.description}</p>
-                    <div className="mt-2 text-[10px] text-[var(--accent)] font-medium">
-                      Source: {notice.source}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
 
-          {/* Calendar Events Widget */}
+        {/* Row 2: Schedule and Notices */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+{/* Calendar Events Widget */}
           {calendarEvents.length > 0 && (
             <div className="glass-card p-5 animate-fade-in-up stagger-1 mb-6">
               <div className="flex items-center justify-between mb-4">
@@ -487,7 +503,7 @@ export default function DashboardPage() {
                 </div>
                 <span className="badge badge-medium">{calendarEvents.length}</span>
               </div>
-              <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {calendarEvents.map((event) => {
                   const startDate = new Date(event.startTime);
                   const isToday = startDate.toDateString() === new Date().toDateString();
@@ -520,7 +536,48 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* AI Burnout Predictor */}
+          
+{/* Notice Feed */}
+          <div className="glass-card p-5 animate-fade-in-up stagger-1 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-[var(--color-info)]" />
+                <h2 className="text-sm font-medium text-[var(--text-primary)]">
+                  Notices & Updates
+                </h2>
+              </div>
+              <span className="badge badge-low">{filteredNotices.length}</span>
+            </div>
+            
+            {filteredNotices.length === 0 ? (
+              <div className="text-center py-6 text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded-md">
+                <p className="text-xs">No recent notices found</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {filteredNotices.map((notice) => (
+                  <div key={notice.id} className="p-3 rounded-md bg-[var(--bg-surface)] border border-[var(--border)]">
+                    <div className="flex justify-between items-start mb-1">
+                      <h3 className="text-[13px] font-medium text-[var(--text-primary)]">{notice.title}</h3>
+                      <span className="text-[10px] text-[var(--text-muted)]">
+                        {notice.createdAt ? new Date(notice.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Recent"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">{notice.description}</p>
+                    <div className="mt-2 text-[10px] text-[var(--accent)] font-medium">
+                      Source: {notice.source}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+                  </div>
+
+{/* Row 3: Analytics */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+{/* AI Burnout Predictor */}
           <div className="glass-card p-5 animate-fade-in-up stagger-2">
             <h3 className="text-xs font-medium text-[var(--text-muted)] mb-4 uppercase tracking-wide">
               Burnout Risk
@@ -546,7 +603,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Workload */}
+          
+{/* Workload */}
           <div className="glass-card p-5 animate-fade-in-up stagger-3">
             <h3 className="text-xs font-medium text-[var(--text-muted)] mb-3 uppercase tracking-wide">
               Workload (14 Days)
@@ -554,7 +612,9 @@ export default function DashboardPage() {
             <WorkloadChart data={workloadData} />
           </div>
         </div>
+
       </div>
     </div>
+    </>
   );
 }

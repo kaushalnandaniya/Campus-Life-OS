@@ -24,7 +24,7 @@ const features = [
     icon: Brain,
     title: "AI Task Extraction",
     description:
-      "Gemini AI parses every email to extract deadlines, subjects, and priorities.",
+      "AI parses every email to extract deadlines, subjects, and priorities.",
   },
   {
     icon: CalendarCheck,
@@ -40,15 +40,15 @@ const features = [
   },
   {
     icon: ShieldCheck,
-    title: "Conflict Detection",
+    title: "14-Day Workload Forecast",
     description:
-      "Spots overlapping deadlines and suggests smart resolutions.",
+      "Interactive charts that predict exactly when you'll be swamped so you can plan ahead.",
   },
   {
     icon: Sparkles,
-    title: "Student Digital Twin",
+    title: "Personal Routine Balance",
     description:
-      "Learns your habits and keeps you ahead of your academic workload.",
+      "Sync your gym schedules, society meetings, and personal habits right alongside your academic deadlines.",
   },
 ];
 
@@ -94,15 +94,12 @@ export default function LandingPage() {
           </p>
 
           <h1 className="text-4xl md:text-6xl font-bold leading-[1.1] mb-5 animate-fade-in-up stagger-1">
-            Never miss a{" "}
-            <span className="gradient-text">deadline</span>
-            <br />
-            again.
+            Your Academic Life <br/> on{" "}
+            <span className="gradient-text">Autopilot</span>.
           </h1>
 
           <p className="text-base md:text-lg text-[var(--text-secondary)] max-w-xl mx-auto mb-8 leading-relaxed animate-fade-in-up stagger-2">
-            Campus Life OS reads your university emails, extracts every
-            assignment using AI, and warns you before burnout.
+            Campus Life OS reads your DAU emails, predicts your workload, and balances your academics with your personal life using AI.
           </p>
 
           <div className="flex items-center justify-center gap-3 animate-fade-in-up stagger-3">
@@ -119,17 +116,14 @@ export default function LandingPage() {
                 Sign in with Google
               </button>
             )}
-            <Link href="/dashboard" className="btn-secondary px-6 py-2.5">
-              View Demo
-            </Link>
           </div>
 
           {/* Stats */}
           <div className="flex items-center justify-center gap-10 mt-12 animate-fade-in-up stagger-4">
             {[
-              { value: "47", label: "Emails scanned" },
-              { value: "8", label: "Tasks extracted" },
-              { value: "0", label: "Missed deadlines" },
+              { value: "500+", label: "Manual hours saved" },
+              { value: "100%", label: "Deadlines met" },
+              { value: "14", label: "Days forecasted" },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <p className="text-2xl font-bold text-[var(--text-primary)]">
