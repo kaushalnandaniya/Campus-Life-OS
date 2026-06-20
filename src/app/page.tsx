@@ -102,19 +102,26 @@ export default function LandingPage() {
             Campus Life OS reads your DAU emails, predicts your workload, and balances your academics with your personal life using AI.
           </p>
 
-          <div className="flex items-center justify-center gap-3 animate-fade-in-up stagger-3">
-            {session ? (
-              <Link href="/dashboard" className="btn-primary px-6 py-2.5">
-                Go to Dashboard
-              </Link>
-            ) : (
-              <button
-                onClick={handleSignIn}
-                className="btn-primary px-6 py-2.5"
-              >
-                <Mail className="w-4 h-4" />
-                Sign in with Google
-              </button>
+          <div className="flex flex-col items-center justify-center animate-fade-in-up stagger-3">
+            <div className="flex items-center justify-center gap-3">
+              {session ? (
+                <Link href="/dashboard" className="btn-primary px-6 py-2.5">
+                  Go to Dashboard
+                </Link>
+              ) : (
+                <button
+                  onClick={handleSignIn}
+                  className="btn-primary px-6 py-2.5"
+                >
+                  <Mail className="w-4 h-4" />
+                  Sign in with Google
+                </button>
+              )}
+            </div>
+            {!session && (
+              <p className="text-[11px] text-[var(--text-muted)] mt-4 max-w-xs text-center leading-relaxed">
+                <span className="text-[var(--color-warning)] font-medium">Important:</span> Please sign in using your official <strong className="text-[var(--text-primary)]">@dau.ac.in</strong> email address to create an account.
+              </p>
             )}
           </div>
 
@@ -181,13 +188,18 @@ export default function LandingPage() {
                 Open Dashboard
               </Link>
             ) : (
-              <button
-                onClick={handleSignIn}
-                className="btn-primary px-6 py-2.5"
-              >
-                <Mail className="w-4 h-4" />
-                Get Started Free
-              </button>
+              <div className="flex flex-col items-center justify-center">
+                <button
+                  onClick={handleSignIn}
+                  className="btn-primary px-6 py-2.5"
+                >
+                  <Mail className="w-4 h-4" />
+                  Get Started Free
+                </button>
+                <p className="text-[11px] text-[var(--text-muted)] mt-4 max-w-xs text-center leading-relaxed">
+                  Requires an official <strong className="text-[var(--text-primary)]">@dau.ac.in</strong> email address.
+                </p>
+              </div>
             )}
           </div>
         </section>
