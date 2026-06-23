@@ -205,7 +205,16 @@ export default function LandingPage() {
         </section>
 
         {/* Footer */}
-        <footer className="py-6 border-t border-[var(--border)] text-center">
+        <footer className="py-6 border-t border-[var(--border)] text-center space-y-2">
+          <div className="flex items-center justify-center gap-4 text-[11px] text-[var(--text-muted)]">
+            <Link href="/privacy" className="hover:text-[var(--text-secondary)] transition-colors">
+              Privacy Policy
+            </Link>
+            <span>·</span>
+            <Link href="/terms" className="hover:text-[var(--text-secondary)] transition-colors">
+              Terms of Service
+            </Link>
+          </div>
           <p className="text-[11px] text-[var(--text-muted)]">
             Built for Buildathon 2026 — Campus Life OS
           </p>
