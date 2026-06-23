@@ -25,6 +25,9 @@ export const metadata: Metadata = {
     "burnout",
     "digital twin",
   ],
+  verification: {
+    google: "BzhTkLtL3_7YFqIgpwbZDgipfnLkbL1KZagEINvcsZk",
+  },
 };
 
 export default function RootLayout({
