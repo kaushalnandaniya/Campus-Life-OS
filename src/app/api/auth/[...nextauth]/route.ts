@@ -61,7 +61,7 @@ export const authOptions: any = {
       const email = user.email?.toLowerCase();
       if (!email) return false;
 
-      if (email.endsWith('@dau.ac.in')) {
+      if (email.endsWith('.ac.in')) {
         return true;
       }
 
@@ -81,7 +81,7 @@ export const authOptions: any = {
         return true;
       }
 
-      // If not @dau.ac.in and not linked, reject
+      // If not .ac.in and not linked, reject
       return "/?error=AccessDenied";
     },
     async jwt({ token, account, user }: any) {
@@ -99,7 +99,7 @@ export const authOptions: any = {
         const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        if (!email.endsWith('@dau.ac.in')) {
+        if (!email.endsWith('.ac.in')) {
           const { data } = await supabase
             .from('connected_accounts')
             .select('user_email')

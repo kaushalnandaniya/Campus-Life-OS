@@ -120,7 +120,7 @@ export default function LandingPage() {
             </div>
             {!session && (
               <p className="text-[11px] text-[var(--text-muted)] mt-4 max-w-xs text-center leading-relaxed">
-                <span className="text-[var(--color-warning)] font-medium">Important:</span> Please sign in using your official <strong className="text-[var(--text-primary)]">@dau.ac.in</strong> email address to create an account.
+                <span className="text-[var(--color-warning)] font-medium">Important:</span> Please sign in using your official <strong className="text-[var(--text-primary)]">.ac.in</strong> email address to create an account.
               </p>
             )}
           </div>
@@ -177,11 +177,11 @@ export default function LandingPage() {
         <section className="py-12 text-center">
           <div className="glass-card p-10 max-w-2xl mx-auto">
             <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
-              Built for DAU Students
+              Built for University Students
             </h2>
             <p className="text-sm text-[var(--text-muted)] mb-5 max-w-md mx-auto">
-              Connects to your @dau.ac.in email. Works with Moodle, Google
-              Classroom, and university announcements.
+              Connects to your .ac.in email. Works with university announcements, Google
+              Classroom, and academic communications.
             </p>
             {session ? (
               <Link href="/dashboard" className="btn-primary px-6 py-2.5">
@@ -197,7 +197,7 @@ export default function LandingPage() {
                   Get Started Free
                 </button>
                 <p className="text-[11px] text-[var(--text-muted)] mt-4 max-w-xs text-center leading-relaxed">
-                  Requires an official <strong className="text-[var(--text-primary)]">@dau.ac.in</strong> email address.
+                  Requires an official <strong className="text-[var(--text-primary)]">.ac.in</strong> email address.
                 </p>
               </div>
             )}

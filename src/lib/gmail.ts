@@ -13,7 +13,7 @@ export interface EmailMessage {
 
 // Patterns to identify academic emails
 const ACADEMIC_SENDERS = [
-  "@dau.ac.in",
+  ".ac.in",
   "@classroom.google.com",
   "moodle",
   "noreply@google.com", // Classroom notifications

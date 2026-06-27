@@ -31,7 +31,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   const userName = session?.user?.name || "Student";
-  const userEmail = session?.user?.email || "student@dau.ac.in";
+  const userEmail = session?.user?.email || "student@university.ac.in";
 
   return (
     <aside

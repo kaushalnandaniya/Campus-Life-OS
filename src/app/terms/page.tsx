@@ -20,14 +20,14 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">2. Description of Service</h2>
           <p>
-            Campus Life OS is a free, open-source academic productivity dashboard built for students of Dhirubhai Ambani University. It connects to your Google account to read emails and calendar data, extract academic tasks using AI, and display them in a unified dashboard.
+            Campus Life OS is a free, open-source academic productivity dashboard built for university students. It connects to your Google account to read emails and calendar data, extract academic tasks using AI, and display them in a unified dashboard.
           </p>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">3. Eligibility</h2>
           <p>
-            This service is designed for students with an official <strong>@dau.ac.in</strong> email address. By using this app, you confirm that you are a current student or authorized member of Dhirubhai Ambani University.
+            This service is designed for students with an official <strong>.ac.in</strong> email address. By using this app, you confirm that you are a current student or authorized member of an educational institution in India.
           </p>
         </section>
 

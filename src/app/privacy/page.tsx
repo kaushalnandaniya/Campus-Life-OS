@@ -13,7 +13,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">1. Overview</h2>
           <p>
-            Campus Life OS (&quot;we&quot;, &quot;our&quot;, or &quot;the App&quot;) is an academic productivity tool built for students of Dhirubhai Ambani University (DAU). This policy explains how we collect, use, and protect your data.
+            Campus Life OS (&quot;we&quot;, &quot;our&quot;, or &quot;the App&quot;) is an academic productivity tool built for university students. This policy explains how we collect, use, and protect your data.
           </p>
         </section>
 
