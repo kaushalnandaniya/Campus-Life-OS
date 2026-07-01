@@ -9,7 +9,7 @@
     ·
     <a href="#problem-statement">Problem Statement</a>
     ·
-    <a href="#current-progress">Current Progress</a>
+    <a href="#features">Features</a>
     ·
     <a href="#tech-stack">Tech Stack</a>
   </p>
@@ -21,7 +21,7 @@
 
 Because Campus Life OS requires read-access to your Gmail to extract tasks and write-access to your Calendar to schedule them, it uses **Restricted Google Scopes**. 
 
-The app is currently published in Google Cloud, but is pending Google's rigorous third-party security verification. When you click **Sign in with Google**, you will see a screen that says:
+When you click **Sign in with Google**, you might see a screen that says:
 > **"Google hasn't verified this app"**
 
 To continue testing the app, please follow these steps:
@@ -30,7 +30,7 @@ To continue testing the app, please follow these steps:
 3. Check the boxes to allow the app to read your Gmail and Calendar.
 4. Click **Continue**.
 
-*Note: You MUST use an official `@dau.ac.in` university email address to create an account.*
+*Note: You must use an official `.ac.in` university email address to create an account.*
 
 <hr />
 
@@ -42,9 +42,7 @@ Students waste hours manually transferring deadlines from syllabi and emails int
 
 **Campus Life OS** solves this by securely connecting to both your academic and personal inboxes, using AI to passively scan for tasks, deadlines, and announcements, and centralizing them into a single, beautiful, and predictive dashboard.
 
-## 🚀 Built Features
-
-We have successfully built a massive array of features during this hackathon:
+## 🚀 Features
 
 - **AI Task Extraction Engine:** Integration with Gemini AI to scan emails, classify them as actionable tasks (Assignments, Quizzes, Meetings) or informational updates (Notices), and estimate completion effort.
 - **Full-Stack Next.js Application:** A responsive, glassmorphism-inspired UI with a locked sidebar and independently scrollable modules.
