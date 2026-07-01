@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     "digital twin",
   ],
   verification: {
-    google: "BzhTkLtL3_7YFqIgpwbZDgipfnLkbL1KZagEINvcsZk",
+    google: "GqsxP50Lzl7Sp7Gw1qO1vjiB2gahTSuG8oK9lqSG6TE",
   },
 };
 
