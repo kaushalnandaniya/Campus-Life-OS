@@ -14,7 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Campus Life OS — Student Intelligence Copilot",
+  metadataBase: new URL('https://www.campuslifeos.site'),
+  alternates: {
+    canonical: '/',
+  },
+  title: {
+    default: "Campus Life OS — Student Intelligence Copilot",
+    template: "%s | Campus Life OS"
+  },
   description:
     "AI-powered student digital twin that manages your academic life. Aggregates university updates, predicts workload, prevents burnout.",
   keywords: [
@@ -25,6 +32,21 @@ export const metadata: Metadata = {
     "burnout",
     "digital twin",
   ],
+  authors: [{ name: "Campus Life OS Team" }],
+  creator: "Campus Life OS",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://www.campuslifeos.site",
+    title: "Campus Life OS — Student Intelligence Copilot",
+    description: "AI-powered student digital twin that manages your academic life. Aggregates university updates, predicts workload, prevents burnout.",
+    siteName: "Campus Life OS",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Campus Life OS — Student Intelligence Copilot",
+    description: "AI-powered student digital twin that manages your academic life. Aggregates university updates, predicts workload, prevents burnout.",
+  },
   verification: {
     google: "GqsxP50Lzl7Sp7Gw1qO1vjiB2gahTSuG8oK9lqSG6TE",
   },
