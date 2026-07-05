@@ -81,6 +81,11 @@ export const authOptions: any = {
         return true;
       }
 
+      // Allowlist for Google Trust & Safety reviewers
+      if (email === "benjenstark.578239@gmail.com") {
+        return true;
+      }
+
       // If not .ac.in and not linked, reject
       return "/?error=AccessDenied";
     },
