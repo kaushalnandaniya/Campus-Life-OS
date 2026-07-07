@@ -141,7 +141,17 @@ export default function SettingsPage() {
     }, 1000);
   };
 
-  const removePersonalEmail = (email: string) => {
+  const removePersonalEmail = async (email: string) => {
+    try {
+      await fetch("/api/calendar/wipe-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountEmail: email })
+      });
+    } catch (e) {
+      console.error("Failed to wipe account calendar events", e);
+    }
+
     const updated = {
       ...profile,
       personalEmails: profile.personalEmails.filter((e) => e.email !== email),
@@ -419,15 +429,15 @@ export default function SettingsPage() {
                   const { supabase } = await import("@/lib/supabase");
                   const userEmail = session?.user?.email;
                   if (userEmail) {
+                    // Best effort to clean up their Google Calendar events BEFORE deleting the tokens
+                    try {
+                      await fetch("/api/calendar/wipe", { method: "POST" });
+                    } catch (e) {}
+
                     // Wipe everything tied to this email in Supabase
                     await supabase.from("tasks").delete().eq("user_email", userEmail);
                     await supabase.from("activities").delete().eq("user_email", userEmail);
                     await supabase.from("connected_accounts").delete().eq("user_email", userEmail);
-                    
-                    // Best effort to clean up their Google Calendar events
-                    try {
-                      await fetch("/api/calendar/wipe", { method: "POST" });
-                    } catch (e) {}
                   }
 
                   // Clear local state

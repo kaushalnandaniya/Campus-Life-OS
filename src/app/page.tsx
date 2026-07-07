@@ -99,7 +99,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-base md:text-lg text-[var(--text-secondary)] max-w-xl mx-auto mb-8 leading-relaxed animate-fade-in-up stagger-2">
-            Campus Life OS reads your DAU emails, predicts your workload, and balances your academics with your personal life using AI.
+            Campus Life OS reads your university emails, predicts your workload, and balances your academics with your personal life using AI.
           </p>
 
           <div className="flex flex-col items-center justify-center animate-fade-in-up stagger-3">

@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
 
           const isActivity = event.description && event.description.includes("CampusOS-Activity-ID:");
 
-          if (!isActivity && (isCampusOsEvent || (event.description && event.description.includes("Task Type:")))) {
+          if (isActivity || isCampusOsEvent || (event.description && event.description.includes("Task Type:"))) {
             try {
               const deleteResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${event.id}`, {
                 method: "DELETE",
