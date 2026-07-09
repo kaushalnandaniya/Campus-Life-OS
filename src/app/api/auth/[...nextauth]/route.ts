@@ -82,7 +82,7 @@ export const authOptions: any = {
       }
 
       // Allowlist for Google Trust & Safety reviewers
-      if (email === "benjenstark.578239@gmail.com") {
+      if (email === "benjenstark.578239@gmail.com" || email === "chorva.galemski24@gmail.com") {
         return true;
       }
 
