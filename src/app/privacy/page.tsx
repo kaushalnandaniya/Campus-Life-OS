@@ -57,7 +57,14 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">7. Contact</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">7. Limited Use Compliance</h2>
+          <p>
+            The use of raw or derived user data received from Workspace APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Google User Data Policy</a>, including the Limited Use requirements.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">8. Contact</h2>
           <p>
             For any questions about this privacy policy, please contact us at the university or via our GitHub repository.
           </p>
