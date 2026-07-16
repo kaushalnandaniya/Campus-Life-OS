@@ -7,6 +7,7 @@ export default function VoiceAgent() {
   const [state, setState] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
   const [transcript, setTranscript] = useState("");
   const [replyText, setReplyText] = useState("");
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [isSupported, setIsSupported] = useState(true);
 
   // We need to keep a ref to the recognition object so we can stop it if needed
@@ -85,43 +86,69 @@ export default function VoiceAgent() {
 
   const processTranscript = async (text: string) => {
     setState("processing");
+    const newMessages = [...messages, { role: "user", content: text }];
+    setMessages(newMessages);
+
     try {
       const res = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ 
+          messages: newMessages,
+          localTime: new Date().toString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        }),
       });
 
       if (!res.ok) throw new Error("API error");
 
       const data = await res.json();
       setReplyText(data.reply);
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
       
       // If the LLM decided we need to sync the calendar
       if (data.action === "SYNC_CALENDAR") {
         console.log("[Voice Agent] Tool Calling: Executing background SYNC_CALENDAR...");
         fetch("/api/sync", { method: "POST" }).catch(e => console.error("Sync failed", e));
+      } else if (data.action === "ADD_EVENT" && data.payload) {
+        console.log("[Voice Agent] Tool Calling: Executing ADD_EVENT...", data.payload);
+        fetch("/api/calendar/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data.payload)
+        }).catch(e => console.error("Add event failed", e));
       }
 
-      speakResponse(data.reply);
+      speakResponse(data.reply, data.needsResponse);
     } catch (err) {
       console.error(err);
       setReplyText("Sorry, I encountered an error.");
-      speakResponse("Sorry, I encountered an error.");
+      speakResponse("Sorry, I encountered an error.", false);
     }
   };
 
-  const speakResponse = (text: string) => {
+  const speakResponse = (text: string, needsResponse: boolean = false) => {
     setState("speaking");
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // Pick a nice voice if available
+    // Pick a premium voice if available
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => v.lang.startsWith("en-") && v.name.includes("Female")) || voices[0];
+    const premiumNames = ["Samantha", "Victoria", "Daniel", "Karen", "Moira", "Rishi", "Tessa"];
+    let preferredVoice = voices.find(v => premiumNames.some(name => v.name.includes(name)));
+    
+    // Fallback if no premium voice matches
+    if (!preferredVoice) {
+      preferredVoice = voices.find(v => v.lang.startsWith("en-") && v.name.includes("Female")) || voices.find(v => v.lang.startsWith("en-")) || voices[0];
+    }
+    
     if (preferredVoice) utterance.voice = preferredVoice;
 
     utterance.onend = () => {
-      setState("idle");
+      if (needsResponse) {
+        startListening();
+      } else {
+        setState("idle");
+      }
     };
 
     utterance.onerror = () => {

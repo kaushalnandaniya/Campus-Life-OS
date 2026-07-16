@@ -4,14 +4,17 @@ import { createClient } from "@supabase/supabase-js";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const SYSTEM_PROMPT = `You are the Campus Life OS Voice Assistant. You help university students manage their academic and personal lives.
-You must reply with a JSON object containing exactly two keys: "message" and "action".
-- "message": A short, conversational string intended to be spoken aloud via Text-to-Speech. Be concise, but if the user explicitly asks for all their tasks, you MUST list them all. Do not use markdown.
-- "action": Must be one of the following strings exactly: "NONE", "SYNC_CALENDAR".
-  - If the user asks you to sync their calendar, pull emails, or fetch their latest tasks, set action to "SYNC_CALENDAR" and say you are doing so.
-  - Otherwise, set action to "NONE".
+You must reply with a JSON object containing exactly these keys: "message", "action", "needsResponse", and optionally "payload".
+- "message": A short, conversational string intended to be spoken aloud via Text-to-Speech. Keep it brief and natural, like a human assistant. DO NOT read out long lists of tasks. If there are many tasks, summarize (e.g., "You have 5 upcoming tasks, the next one is X"). Do not use markdown. If asked for upcoming/future tasks, look ONLY at the "Upcoming Tasks" list.
+- "needsResponse": A boolean (true or false). Set to true ONLY if you end your message with a direct question that requires the user to reply immediately. Set to false otherwise.
+- "action": Must be one of exactly: "NONE", "SYNC_CALENDAR", "ADD_EVENT".
+  - "SYNC_CALENDAR": Use this if the user asks you to sync their calendar, pull emails, or fetch latest tasks.
+  - "ADD_EVENT": Use this if the user asks you to schedule a session, add a task to the calendar, or set a meeting.
+  - "NONE": Use this for everything else.
+- "payload": If action is "ADD_EVENT", you MUST include a payload object with "title", "startTime" (ISO string), and "endTime" (ISO string). IMPORTANT: You MUST generate these ISO strings in the user's local timezone offset provided in the context, NOT UTC.
 
 Current Context:
-You will be provided with the user's current tasks. Use them to answer questions about their schedule.`;
+You will be provided with the user's current tasks and their local time/timezone. Use this to determine relative times (like "6 PM today").`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,9 +23,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { message } = await req.json();
-    if (!message) {
-      return NextResponse.json({ error: "Message is required" }, { status: 400 });
+    const { messages, localTime, timeZone } = await req.json();
+    if (!messages || !Array.isArray(messages)) {
+      return NextResponse.json({ error: "Messages array is required" }, { status: 400 });
     }
 
     // Fetch context
@@ -36,15 +39,42 @@ export async function POST(req: NextRequest) {
       .eq("user_email", session.user.email)
       .eq("status", "pending")
       .order("deadline", { ascending: true })
-      .limit(30);
+      .limit(150);
+      
+    const now = new Date();
+    const overdueTasks = tasks?.filter(t => new Date(t.deadline) < now) || [];
+    const upcomingTasks = tasks?.filter(t => new Date(t.deadline) >= now) || [];
 
-    const context = `User has the following pending tasks: ${JSON.stringify(tasks || [])}`;
+    const context = `User's Local Date/Time: ${localTime || new Date().toString()}
+User's TimeZone: ${timeZone || 'Unknown'}
+
+Overdue Tasks (${overdueTasks.length}):
+${JSON.stringify(overdueTasks.slice(0, 10))} ${overdueTasks.length > 10 ? "...and more" : ""}
+
+Upcoming Tasks (${upcomingTasks.length}):
+${JSON.stringify(upcomingTasks.slice(0, 20))} ${upcomingTasks.length > 20 ? "...and more" : ""}
+
+CRITICAL: When generating ISO timestamps for ADD_EVENT payloads, adjust the ISO string to include the correct timezone offset for the user's timezone (e.g. use +05:30 for IST instead of Z).`;
 
     // Call Groq (Llama 3.3)
     const groqApiKey = process.env.GROQ_API_KEY;
     if (!groqApiKey) {
       return NextResponse.json({ error: "GROQ_API_KEY missing" }, { status: 500 });
     }
+
+    // Construct Groq messages
+    // The last user message should get the context prepended to it to save context window and ensure high priority
+    const llmMessages = [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...messages.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
+    ];
+    
+    // Attach context to the very last message from the user
+    const lastMsg = messages[messages.length - 1];
+    llmMessages.push({
+      role: lastMsg.role,
+      content: `[Context: ${context}]\n\nUser Voice Input: "${lastMsg.content}"`
+    });
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -54,11 +84,8 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Context: ${context}\n\nUser Voice Input: "${message}"` }
-        ],
-        temperature: 0.3,
+        messages: llmMessages,
+        temperature: 0.2,
         response_format: { type: "json_object" }
       })
     });
@@ -72,18 +99,18 @@ export async function POST(req: NextRequest) {
     const groqData = await groqRes.json();
     const responseText = groqData.choices?.[0]?.message?.content || "";
     
-    let parsed: { message: string; action: string } = { message: "I didn't quite catch that.", action: "NONE" };
+    let parsed: any = { message: "I didn't quite catch that.", action: "NONE", needsResponse: false };
     try {
       parsed = JSON.parse(responseText);
     } catch (e) {
       console.error("[Agent Chat] Failed to parse JSON:", responseText);
     }
 
-    // If the LLM decided to invoke the tool, we can trigger it server-side or let the client handle it.
-    // For simplicity, we just pass the action to the client, and the client triggers the sync API.
     return NextResponse.json({
       reply: parsed.message || "I'm not sure how to help with that.",
-      action: parsed.action === "SYNC_CALENDAR" ? "SYNC_CALENDAR" : "NONE"
+      action: parsed.action || "NONE",
+      needsResponse: !!parsed.needsResponse,
+      payload: parsed.payload || null
     });
 
   } catch (error: any) {
