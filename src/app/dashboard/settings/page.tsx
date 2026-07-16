@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { Mail, Bell, Shield, User, Plus, X, Save, Check } from "lucide-react";
+import { Mail, Bell, Shield, User, Plus, X, Save, Check, Key } from "lucide-react";
 
 interface PersonalEmailAccount {
   email: string;
@@ -73,6 +73,22 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile>({ displayName: "", phone: "", personalEmails: [], preferences: defaultPreferences });
   const [newEmail, setNewEmail] = useState("");
   const [saved, setSaved] = useState(false);
+  const [siriKey, setSiriKey] = useState<string | null>(null);
+  const [generatingKey, setGeneratingKey] = useState(false);
+
+  const generateSiriKey = async () => {
+    setGeneratingKey(true);
+    try {
+      const res = await fetch("/api/keys/generate");
+      const data = await res.json();
+      if (data.apiKey) {
+        setSiriKey(data.apiKey);
+      }
+    } catch (e) {
+      console.error("Failed to generate key", e);
+    }
+    setGeneratingKey(false);
+  };
 
   // Load profile from localStorage on mount
   useEffect(() => {
@@ -508,6 +524,52 @@ export default function SettingsPage() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Integrations (Siri Shortcuts) */}
+      <div className="glass-card p-5 animate-fade-in-up stagger-3">
+        <div className="flex items-center gap-2 mb-4">
+          <Key className="w-4 h-4 text-[var(--color-success)]" />
+          <h2 className="text-sm font-medium text-[var(--text-primary)]">
+            Developer Integrations
+          </h2>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+            <div>
+              <p className="text-[13px] text-[var(--text-primary)]">Siri Shortcuts API Key</p>
+              <p className="text-[11px] text-[var(--text-muted)] max-w-[250px]">
+                Generate a secure API key to connect your iPhone to Campus Life OS. Keep this secret!
+              </p>
+            </div>
+            {siriKey ? (
+              <div className="flex items-center gap-2 bg-[var(--bg-surface)] border border-[var(--border)] px-3 py-1.5 rounded-md">
+                <span className="text-[11px] font-mono text-[var(--text-primary)]">{siriKey}</span>
+              </div>
+            ) : (
+              <button 
+                onClick={generateSiriKey}
+                disabled={generatingKey}
+                className="btn-primary text-[11px] px-3 py-1.5 h-auto min-h-0"
+              >
+                {generatingKey ? "Generating..." : "Generate Key"}
+              </button>
+            )}
+          </div>
+          {siriKey && (
+            <div className="bg-[var(--bg-surface)] p-3 rounded-md border border-[var(--border)]">
+              <p className="text-[11px] text-[var(--text-muted)] font-medium mb-1">Shortcut Setup Instructions:</p>
+              <ul className="text-[10px] text-[var(--text-muted)] list-disc pl-4 space-y-1">
+                <li>Create a new Siri Shortcut on your iPhone.</li>
+                <li>Add a "Get contents of URL" action.</li>
+                <li>Set URL to: <code>https://your-domain.com/api/siri/chat</code></li>
+                <li>Method: <code>POST</code></li>
+                <li>Headers: Add <code>Authorization: Bearer {siriKey}</code></li>
+                <li>Body: Add a <code>command</code> field with your dictated text.</li>
+              </ul>
+            </div>
+          )}
         </div>
       </div>
 
