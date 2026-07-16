@@ -1,0 +1,203 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import { Mic, Loader2, Volume2, X } from "lucide-react";
+
+export default function VoiceAgent() {
+  const [state, setState] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
+  const [transcript, setTranscript] = useState("");
+  const [replyText, setReplyText] = useState("");
+  const [isSupported, setIsSupported] = useState(true);
+
+  // We need to keep a ref to the recognition object so we can stop it if needed
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Check if SpeechRecognition is supported
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setIsSupported(false);
+    }
+  }, []);
+
+  const handleMicClick = () => {
+    if (state === "idle") {
+      startListening();
+    } else if (state === "listening") {
+      stopListening();
+    } else if (state === "speaking") {
+      window.speechSynthesis.cancel();
+      setState("idle");
+    }
+  };
+
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    setTranscript("");
+    setReplyText("");
+    setState("listening");
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognitionRef.current = recognition;
+
+    recognition.onresult = (event: any) => {
+      const currentTranscript = Array.from(event.results)
+        .map((result: any) => result[0].transcript)
+        .join("");
+      setTranscript(currentTranscript);
+    };
+
+    recognition.onend = () => {
+      // If the user said something, process it. Otherwise, go back to idle.
+      if (recognitionRef.current) {
+        // Find out what the final transcript was from state
+        // (Due to closure, we need to handle the API call here carefully, but usually we just let a useEffect or similar handle it, or we rely on the final transcript string)
+      }
+    };
+    
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setState("idle");
+    };
+
+    // A better way is to wait for the user to stop speaking naturally, which `onend` triggers.
+    // Let's hook the API call up directly when it ends, but we need the latest transcript.
+    // To get the latest transcript in `onend`, we can use a functional approach or just call processTranscript with the final string.
+    
+    // Instead of relying on state which might be stale in the event listener, we capture the final string:
+    let finalTranscript = "";
+    recognition.onresult = (event: any) => {
+      finalTranscript = Array.from(event.results)
+        .map((result: any) => result[0].transcript)
+        .join("");
+      setTranscript(finalTranscript);
+    };
+
+    recognition.onend = () => {
+      if (finalTranscript.trim()) {
+        processTranscript(finalTranscript);
+      } else {
+        setState("idle");
+      }
+    };
+
+    recognition.start();
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+  };
+
+  const processTranscript = async (text: string) => {
+    setState("processing");
+    try {
+      const res = await fetch("/api/agent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+
+      if (!res.ok) throw new Error("API error");
+
+      const data = await res.json();
+      setReplyText(data.reply);
+      
+      // If the LLM decided we need to sync the calendar
+      if (data.action === "SYNC_CALENDAR") {
+        console.log("[Voice Agent] Tool Calling: Executing background SYNC_CALENDAR...");
+        fetch("/api/sync", { method: "POST" }).catch(e => console.error("Sync failed", e));
+      }
+
+      speakResponse(data.reply);
+    } catch (err) {
+      console.error(err);
+      setReplyText("Sorry, I encountered an error.");
+      speakResponse("Sorry, I encountered an error.");
+    }
+  };
+
+  const speakResponse = (text: string) => {
+    setState("speaking");
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Pick a nice voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => v.lang.startsWith("en-") && v.name.includes("Female")) || voices[0];
+    if (preferredVoice) utterance.voice = preferredVoice;
+
+    utterance.onend = () => {
+      setState("idle");
+    };
+
+    utterance.onerror = () => {
+      setState("idle");
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  if (!isSupported) return null;
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+      {/* Chat Bubble (only shows if there's a transcript or reply) */}
+      {(transcript || replyText) && state !== "idle" && (
+        <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] shadow-xl rounded-2xl p-4 max-w-xs animate-fade-in-up">
+          <div className="flex justify-between items-start mb-1">
+            <span className="text-xs font-semibold text-[var(--accent-color)] uppercase tracking-wider">
+              Campus AI
+            </span>
+            <button 
+              onClick={() => { setState("idle"); window.speechSynthesis.cancel(); setTranscript(""); setReplyText(""); }}
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          
+          {transcript && (
+            <p className="text-sm text-[var(--text-primary)] mb-2 italic">
+              "{transcript}"
+            </p>
+          )}
+
+          {state === "processing" && (
+            <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+              <Loader2 size={12} className="animate-spin" /> Thinking...
+            </div>
+          )}
+
+          {replyText && state === "speaking" && (
+            <p className="text-sm text-[var(--text-secondary)]">
+              {replyText}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Floating Action Button */}
+      <button
+        onClick={handleMicClick}
+        className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
+          state === "idle" ? "bg-[var(--accent-color)] text-white hover:scale-105" :
+          state === "listening" ? "bg-red-500 text-white animate-pulse" :
+          state === "processing" ? "bg-amber-500 text-white" :
+          "bg-emerald-500 text-white"
+        }`}
+      >
+        {state === "idle" && <Mic size={24} />}
+        {state === "listening" && <Mic size={24} />}
+        {state === "processing" && <Loader2 size={24} className="animate-spin" />}
+        {state === "speaking" && <Volume2 size={24} className="animate-pulse" />}
+      </button>
+    </div>
+  );
+}

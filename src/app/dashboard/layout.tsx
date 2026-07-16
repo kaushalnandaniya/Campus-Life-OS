@@ -1,4 +1,5 @@
 import Sidebar from "@/components/Sidebar";
+import VoiceAgent from "@/components/VoiceAgent";
 
 export default function DashboardLayout({
   children,
@@ -14,6 +15,7 @@ export default function DashboardLayout({
           {children}
         </div>
       </main>
+      <VoiceAgent />
     </div>
   );
 }
