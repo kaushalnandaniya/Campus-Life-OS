@@ -25,8 +25,14 @@ export default function VoiceAgent() {
       startListening();
     } else if (state === "listening") {
       stopListening();
-    } else if (state === "speaking") {
+      if (transcript.trim()) {
+        processTranscript(transcript);
+      } else {
+        setState("idle");
+      }
+    } else if (state === "speaking" || state === "processing") {
       window.speechSynthesis.cancel();
+      stopListening();
       setState("idle");
     }
   };
@@ -46,31 +52,6 @@ export default function VoiceAgent() {
 
     recognitionRef.current = recognition;
 
-    recognition.onresult = (event: any) => {
-      const currentTranscript = Array.from(event.results)
-        .map((result: any) => result[0].transcript)
-        .join("");
-      setTranscript(currentTranscript);
-    };
-
-    recognition.onend = () => {
-      // If the user said something, process it. Otherwise, go back to idle.
-      if (recognitionRef.current) {
-        // Find out what the final transcript was from state
-        // (Due to closure, we need to handle the API call here carefully, but usually we just let a useEffect or similar handle it, or we rely on the final transcript string)
-      }
-    };
-    
-    recognition.onerror = (event: any) => {
-      console.error("Speech recognition error", event.error);
-      setState("idle");
-    };
-
-    // A better way is to wait for the user to stop speaking naturally, which `onend` triggers.
-    // Let's hook the API call up directly when it ends, but we need the latest transcript.
-    // To get the latest transcript in `onend`, we can use a functional approach or just call processTranscript with the final string.
-    
-    // Instead of relying on state which might be stale in the event listener, we capture the final string:
     let finalTranscript = "";
     recognition.onresult = (event: any) => {
       finalTranscript = Array.from(event.results)
@@ -87,11 +68,17 @@ export default function VoiceAgent() {
       }
     };
 
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setState("idle");
+    };
+
     recognition.start();
   };
 
   const stopListening = () => {
     if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
       recognitionRef.current.stop();
     }
   };

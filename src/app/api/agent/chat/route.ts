@@ -5,7 +5,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const SYSTEM_PROMPT = `You are the Campus Life OS Voice Assistant. You help university students manage their academic and personal lives.
 You must reply with a JSON object containing exactly two keys: "message" and "action".
-- "message": A short, conversational string intended to be spoken aloud via Text-to-Speech. Be extremely concise. Keep it under 2 sentences. Do not use markdown.
+- "message": A short, conversational string intended to be spoken aloud via Text-to-Speech. Be concise, but if the user explicitly asks for all their tasks, you MUST list them all. Do not use markdown.
 - "action": Must be one of the following strings exactly: "NONE", "SYNC_CALENDAR".
   - If the user asks you to sync their calendar, pull emails, or fetch their latest tasks, set action to "SYNC_CALENDAR" and say you are doing so.
   - Otherwise, set action to "NONE".
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       .eq("user_email", session.user.email)
       .eq("status", "pending")
       .order("deadline", { ascending: true })
-      .limit(5);
+      .limit(30);
 
     const context = `User has the following pending tasks: ${JSON.stringify(tasks || [])}`;
 
