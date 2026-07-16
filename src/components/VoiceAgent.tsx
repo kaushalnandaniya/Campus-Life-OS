@@ -22,6 +22,12 @@ export default function VoiceAgent() {
   }, []);
 
   const handleMicClick = () => {
+    // iOS Safari Hack: Initialize audio context synchronously during a user interaction
+    // so that asynchronous speech synthesis later is not blocked.
+    const warmup = new SpeechSynthesisUtterance("");
+    warmup.volume = 0;
+    window.speechSynthesis.speak(warmup);
+
     if (state === "idle") {
       startListening();
     } else if (state === "listening") {
