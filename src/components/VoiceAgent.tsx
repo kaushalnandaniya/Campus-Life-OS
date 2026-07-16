@@ -73,6 +73,9 @@ export default function VoiceAgent() {
       } else {
         setState("idle");
       }
+      
+      // Force hardware release for Mac/iOS so orange dot goes away
+      try { recognition.abort(); } catch(e) {}
     };
 
     recognition.onerror = (event: any) => {
@@ -86,7 +89,9 @@ export default function VoiceAgent() {
   const stopListening = () => {
     if (recognitionRef.current) {
       recognitionRef.current.onend = null;
-      recognitionRef.current.stop();
+      try { recognitionRef.current.abort(); } catch(e) {} // Abort forcefully drops the hardware mic stream
+      try { recognitionRef.current.stop(); } catch(e) {}
+      recognitionRef.current = null;
     }
   };
 
