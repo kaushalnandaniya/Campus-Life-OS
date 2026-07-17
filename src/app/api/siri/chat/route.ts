@@ -122,7 +122,53 @@ CRITICAL: When generating ISO timestamps for ADD_EVENT payloads, adjust the ISO 
       // In a real scenario, we would trigger a background sync here
       parsed.message = "I have initiated a calendar sync in the background.";
     } else if (parsed.action === "ADD_EVENT" && parsed.payload) {
-      // Add the task to the database natively
+      // 1. First push to Google Calendar (like the web app does)
+      const { data: accounts, error: accountsError } = await supabase
+        .from("connected_accounts")
+        .select("*")
+        .eq("user_email", userEmail);
+
+      let addedToCalendar = false;
+      let gcalErrorMsg = "";
+
+      if (accounts && accounts.length > 0) {
+        const { addCalendarEvent } = await import("@/lib/gcal");
+        for (const account of accounts) {
+          let accessToken = account.access_token;
+          // Refresh if needed
+          if (account.expires_at < Date.now() + 60000 && account.refresh_token) {
+            const tokenUrl = "https://oauth2.googleapis.com/token";
+            const res = await fetch(tokenUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: new URLSearchParams({
+                client_id: process.env.GOOGLE_CLIENT_ID || "",
+                client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+                grant_type: "refresh_token",
+                refresh_token: account.refresh_token,
+              }),
+            });
+            const refreshedTokens = await res.json();
+            if (res.ok && refreshedTokens.access_token) {
+              accessToken = refreshedTokens.access_token;
+              await supabase.from("connected_accounts").update({
+                access_token: accessToken,
+                expires_at: Date.now() + refreshedTokens.expires_in * 1000,
+              }).eq("id", account.id);
+            }
+          }
+
+          try {
+            const eventId = await addCalendarEvent(accessToken, parsed.payload.title, parsed.payload.startTime, parsed.payload.endTime);
+            if (eventId) addedToCalendar = true;
+          } catch (e: any) {
+            console.error("GCal Add Error:", e);
+            gcalErrorMsg = e.message;
+          }
+        }
+      }
+
+      // 2. Also try to add to tasks DB (fallback/record)
       const { error: insertError } = await supabase
         .from("tasks")
         .insert([{
@@ -134,10 +180,12 @@ CRITICAL: When generating ISO timestamps for ADD_EVENT payloads, adjust the ISO 
           source: "Siri Voice"
         }]);
         
-      if (!insertError) {
+      if (addedToCalendar) {
         parsed.message = `I have added ${parsed.payload.title} to your schedule.`;
+      } else if (!insertError) {
+        parsed.message = `I saved ${parsed.payload.title} to your tasks, but couldn't sync to Google Calendar.`;
       } else {
-        parsed.message = "Sorry, I failed to save the event to the database.";
+        parsed.message = `Sorry, I failed to save the event. DB Error: ${insertError?.message || "Unknown"}, GCal Error: ${gcalErrorMsg || "No accounts linked"}`;
       }
     }
 
